@@ -1,16 +1,16 @@
 // GET /api/grok-phone-call/events?callSid=...
-// Server-Sent Events stream — the frontend polls this after the call is placed
-// to receive real-time status updates (ringing, answered, transcript, completed).
+// SSE stream — polls callEventStore (written by /recording) and pushes events
+// to the browser in real time: dialing → connected → transcript → analysis → ended.
 
 import { NextRequest } from "next/server"
-import { callEvents } from "../status/route"
+import { callEventStore } from "@/app/api/grok-phone-call/recording/route"
+import { callStatusStore } from "@/app/api/grok-phone-call/status/route"
 
 export const runtime = "nodejs"
+export const maxDuration = 120
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const callSid = searchParams.get("callSid") ?? ""
-
+  const callSid = new URL(req.url).searchParams.get("callSid") ?? ""
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -19,57 +19,50 @@ export async function GET(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
       }
 
-      send({ type: "call.watching", callSid })
+      send({ type: "call.dialing" })
 
-      // Poll every 500ms for up to 3 minutes
-      const maxAttempts = 360
-      let attempts = 0
-      let lastStatus = ""
+      let cursor = 0
+      let lastTwilioStatus = ""
+      const maxIterations = 240 // 240 × 500ms = 120s
 
-      while (attempts < maxAttempts) {
+      for (let i = 0; i < maxIterations; i++) {
         await new Promise((r) => setTimeout(r, 500))
-        attempts++
 
-        const state = callEvents.get(callSid)
-        if (!state) continue
-
-        if (state.status !== lastStatus) {
-          lastStatus = state.status
-
-          switch (state.status) {
-            case "initiated":
-              send({ type: "call.dialing" }); break
-            case "ringing":
-              send({ type: "call.ringing" }); break
-            case "answered":
-            case "in-progress":
-              send({ type: "call.connected" }); break
-            case "completed":
-            case "failed":
-            case "busy":
-            case "no-answer":
-              send({ type: "call.ended", status: state.status, transcript: state.transcript ?? "" })
-              controller.close()
-              return
-          }
+        // Surface Twilio call-leg status changes (ringing, answered)
+        const twilioStatus = callStatusStore.get(callSid) ?? ""
+        if (twilioStatus !== lastTwilioStatus) {
+          lastTwilioStatus = twilioStatus
+          if (twilioStatus === "ringing")                    send({ type: "call.ringing" })
+          if (twilioStatus === "in-progress")                send({ type: "call.connected" })
+          if (twilioStatus === "grok-speaking")              send({ type: "call.grok_speaking" })
         }
 
-        // If transcript arrived, surface it
-        if (state.transcript && state.status !== "completed") {
-          send({ type: "call.transcript", text: state.transcript })
+        // Drain new events written by /recording (transcript, analysis, ended)
+        const events = callEventStore.get(callSid) ?? []
+        const fresh = events.slice(cursor)
+        cursor += fresh.length
+
+        for (const ev of fresh) {
+          send(ev)
+          if (ev.type === "call.ended" || ev.type === "call.error") {
+            callEventStore.delete(callSid)
+            callStatusStore.delete(callSid)
+            controller.close()
+            return
+          }
         }
       }
 
-      send({ type: "call.error", message: "Timed out waiting for call to complete" })
+      send({ type: "call.error", message: "Call timed out after 2 minutes" })
       controller.close()
     },
   })
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
+      "Content-Type":  "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
-      "Connection": "keep-alive",
+      Connection:      "keep-alive",
     },
   })
 }

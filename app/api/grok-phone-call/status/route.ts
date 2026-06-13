@@ -6,15 +6,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 
-// In-memory store keyed by callSid — stores latest status + transcript
-// In production this would be Redis/Supabase
-export const callEvents: Map<string, { status: string; transcript?: string; analysis?: string }> =
-  (globalThis as unknown as { _callEvents?: typeof callEvents })._callEvents ??
-  (() => {
-    const m = new Map<string, { status: string; transcript?: string; analysis?: string }>()
-    ;(globalThis as unknown as { _callEvents: typeof m })._callEvents = m
-    return m
-  })()
+// Simple map: callSid → latest Twilio call status string (ringing, in-progress, etc.)
+export const callStatusStore: Map<string, string> = new Map()
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -23,9 +16,8 @@ export async function POST(req: NextRequest) {
   const callSid    = params.get("CallSid") ?? ""
   const callStatus = params.get("CallStatus") ?? ""
 
-  if (callSid) {
-    const existing = callEvents.get(callSid) ?? { status: "" }
-    callEvents.set(callSid, { ...existing, status: callStatus })
+  if (callSid && callStatus) {
+    callStatusStore.set(callSid, callStatus)
   }
 
   return new NextResponse("OK", { status: 200 })
