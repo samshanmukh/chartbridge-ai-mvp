@@ -224,10 +224,10 @@ export function useGrokVoice(): UseGrokVoiceReturn {
       }, msUntilExpiry)
     }
 
-    // ── Step 3: Start mic capture IN PARALLEL with WebSocket connect ──────
-    //    Do NOT await the WebSocket open before capturing audio.
-    let micStarted = false
-    const startMic = async () => {
+    // ── Step 3: Define mic start — called ONLY after Grok finishes speaking ──
+    //    Mic is intentionally NOT started here. It opens in response.output_audio.done
+    //    so the patient never accidentally records audio during the question playback.
+    const startMic = async (): Promise<boolean> => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -250,25 +250,16 @@ export function useGrokVoice(): UseGrokVoiceReturn {
         worklet.port.onmessage = (e: MessageEvent<Int16Array>) => {
           const int16 = e.data
           const ws = wsRef.current
-
-          if (isSessionReadyRef.current && ws?.readyState === WebSocket.OPEN) {
-            // Live streaming
+          if (ws?.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
               type: "input_audio_buffer.append",
               audio: audioToBase64(int16),
             }))
-          } else {
-            // Buffer until session.updated — cap at ~10s
-            const totalSamples = micBufferRef.current.reduce((s, c) => s + c.length, 0)
-            if (totalSamples < SAMPLE_RATE * 10) {
-              micBufferRef.current.push(int16)
-            }
           }
         }
 
         source.connect(worklet)
-        // worklet has no audio output — do NOT connect to destination
-        micStarted = true
+        return true
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err)
         if (msg.includes("NotAllowedError") || msg.includes("Permission")) {
@@ -279,18 +270,16 @@ export function useGrokVoice(): UseGrokVoiceReturn {
           setError(`Mic error: ${msg}`)
         }
         setStatus("error")
+        return false
       }
     }
 
-    // ── Step 4: Open WebSocket (in parallel with mic) ─────────────────────
+    // ── Step 4: Open WebSocket ────────────────────────────────────────────
     const ws = new WebSocket(
       "wss://api.x.ai/v1/realtime?model=grok-voice-latest",
       [`xai-client-secret.${token}`]
     )
     wsRef.current = ws
-
-    // Start mic and WS concurrently
-    const micPromise = startMic()
 
     // Connection timeout — 10 seconds
     const connectTimeout = setTimeout(() => {
@@ -334,27 +323,10 @@ The question to ask is: "${question}"`,
       switch (msg.type) {
 
         case "session.updated": {
-          // Session config acknowledged — flush buffered mic audio and go live
+          // Session config acknowledged — trigger Grok to speak the question.
+          // Mic is NOT started here; it opens only after Grok finishes speaking.
           if (!isSessionReadyRef.current) {
             isSessionReadyRef.current = true
-
-            // Wait for mic to be ready before flushing
-            await micPromise
-
-            if (!micStarted) return // mic failed — already set error
-
-            // Flush buffered audio in chronological order
-            for (const chunk of micBufferRef.current) {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: "input_audio_buffer.append",
-                  audio: audioToBase64(chunk),
-                }))
-              }
-            }
-            micBufferRef.current = []
-
-            // Trigger Grok to speak the question
             ws.send(JSON.stringify({
               type: "conversation.item.create",
               item: {
@@ -375,9 +347,12 @@ The question to ask is: "${question}"`,
           break
         }
 
-        // Grok finished its turn — patient can now speak
+        // Grok finished speaking — NOW open the mic so patient can respond
         case "response.output_audio.done": {
-          setStatus("listening")
+          const micOk = await startMic()
+          if (micOk) {
+            setStatus("listening")
+          }
           break
         }
 
