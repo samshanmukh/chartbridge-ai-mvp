@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Mic, Sparkles, CheckCircle, ChevronRight, Volume2, Loader2, Square, AlertCircle, ExternalLink, Send, MicOff } from "lucide-react"
+import { Mic, Sparkles, CheckCircle, ChevronRight, Volume2, Loader2, Square, AlertCircle, ExternalLink, Send, Phone, PhoneCall, PhoneOff } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useGrokVoice } from "@/hooks/use-grok-voice"
 
@@ -13,6 +14,7 @@ interface GapPrompt {
   id: string
   question: string
   tag: string
+  allowPhoneCall?: boolean
 }
 
 const gapPrompts: GapPrompt[] = [
@@ -33,6 +35,7 @@ const gapPrompts: GapPrompt[] = [
     question:
       "Your wearable shows elevated glucose readings in the evenings over the past 3 weeks. Have you made any dietary changes?",
     tag: "Wearable Alert",
+    allowPhoneCall: true,
   },
 ]
 
@@ -98,6 +101,16 @@ async function analyzeWithGrok(
   }
 }
 
+type CallPhase =
+  | "idle"
+  | "input"       // phone number entry UI
+  | "dialing"
+  | "connected"
+  | "grok-speaking"
+  | "patient-speaking"
+  | "call-ended"
+  | "error"
+
 function PromptCard({
   prompt,
   notEnabled,
@@ -111,6 +124,13 @@ function PromptCard({
   const [patientResponse, setPatientResponse] = useState("")
   const [grokAnalysis, setGrokAnalysis] = useState("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+
+  // Phone call state
+  const [callPhase, setCallPhase] = useState<CallPhase>("idle")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [callTranscript, setCallTranscript] = useState("")
+  const [callAnalysis, setCallAnalysis] = useState("")
+  const [callError, setCallError] = useState("")
 
   // Fallback state (used when Grok Voice not enabled)
   const [fallbackActive, setFallbackActive] = useState(false)
@@ -175,6 +195,73 @@ function PromptCard({
     setIsListening(true)
   }, [isListening])
 
+  const handleStartCall = useCallback(() => {
+    setCallPhase("input")
+  }, [])
+
+  const handleDialCall = useCallback(async () => {
+    const num = phoneNumber.trim()
+    if (!num) return
+    setCallPhase("dialing")
+    setCallTranscript("")
+    setCallAnalysis("")
+    setCallError("")
+
+    try {
+      const res = await fetch("/api/grok-phone-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: num, question: prompt.question }),
+      })
+
+      if (!res.ok) throw new Error("Call failed to initiate")
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      if (!reader) throw new Error("No stream")
+
+      let buffer = ""
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const event = JSON.parse(line)
+            switch (event.type) {
+              case "call.dialing":      setCallPhase("dialing"); break
+              case "call.connected":    setCallPhase("connected"); break
+              case "call.grok_speaking": setCallPhase("grok-speaking"); break
+              case "call.patient_speaking": setCallPhase("patient-speaking"); break
+              case "call.transcript":
+                setCallTranscript(event.text)
+                setPatientResponse(event.text)
+                break
+              case "call.analysis":
+                setCallAnalysis(event.text)
+                setGrokAnalysis(event.text)
+                break
+              case "call.ended":
+                setCallPhase("call-ended")
+                setSubmitted(true)
+                onResult(prompt.id)
+                break
+              case "call.error":
+                setCallError(event.message)
+                setCallPhase("error")
+                break
+            }
+          } catch { /* ignore malformed lines */ }
+        }
+      }
+    } catch (err: unknown) {
+      setCallError(err instanceof Error ? err.message : "Call failed")
+      setCallPhase("error")
+    }
+  }, [phoneNumber, prompt.question, prompt.id, onResult])
+
   const handleAskPatient = useCallback(async () => {
     if (notEnabled) {
       setFallbackActive(true)
@@ -226,11 +313,23 @@ function PromptCard({
           )}
         </div>
 
-        {!isGrokActive && !fallbackActive && !submitted && (
-          <Button size="sm" variant="outline" className="text-xs h-7 shrink-0" onClick={handleAskPatient}>
-            <Volume2 className="size-3 mr-1" />
-            Ask Patient
-          </Button>
+        {!isGrokActive && !fallbackActive && callPhase === "idle" && !submitted && (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="text-xs h-7 shrink-0" onClick={handleAskPatient}>
+              <Volume2 className="size-3 mr-1" />
+              Ask Patient
+            </Button>
+            {prompt.allowPhoneCall && (
+              <Button
+                size="sm"
+                className="text-xs h-7 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                onClick={handleStartCall}
+              >
+                <Phone className="size-3" />
+                Call Patient
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -356,8 +455,123 @@ function PromptCard({
         </div>
       )}
 
+      {/* Phone call UI */}
+      {callPhase !== "idle" && (
+        <div className="mt-1 pt-3 border-t border-border/60 flex flex-col gap-3">
+
+          {/* Phone number entry */}
+          {callPhase === "input" && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                <Phone className="size-3.5 text-emerald-600" />
+                Call patient via Grok Voice
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Grok will call the patient, ask the question, listen to their response, and return a clinical analysis.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleDialCall() }}
+                  className="h-9 text-sm"
+                />
+                <Button
+                  className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shrink-0"
+                  onClick={handleDialCall}
+                  disabled={!phoneNumber.trim()}
+                >
+                  <PhoneCall className="size-3.5" />
+                  Call Now
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Live call status */}
+          {callPhase !== "input" && callPhase !== "call-ended" && callPhase !== "error" && (
+            <div className="flex flex-col gap-2">
+              <div className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 border text-xs font-medium",
+                callPhase === "dialing"          && "border-blue-200 bg-blue-50 text-blue-700",
+                callPhase === "connected"        && "border-emerald-200 bg-emerald-50 text-emerald-700",
+                callPhase === "grok-speaking"    && "border-amber-200 bg-amber-50 text-amber-700",
+                callPhase === "patient-speaking" && "border-red-200 bg-red-50 text-red-700",
+              )}>
+                {callPhase === "dialing" && (
+                  <><Loader2 className="size-3.5 animate-spin" />Dialing {phoneNumber}...</>
+                )}
+                {callPhase === "connected" && (
+                  <><PhoneCall className="size-3.5 animate-pulse" />Call connected</>
+                )}
+                {callPhase === "grok-speaking" && (
+                  <>
+                    <Volume2 className="size-3.5" />
+                    Grok is asking the question...
+                    <span className="flex gap-0.5 items-end ml-1">
+                      {[0,1,2].map(i => (
+                        <span key={i} className="inline-block w-0.5 rounded-full bg-amber-500 animate-bounce"
+                          style={{ height: `${6+i*3}px`, animationDelay: `${i*80}ms` }} />
+                      ))}
+                    </span>
+                  </>
+                )}
+                {callPhase === "patient-speaking" && (
+                  <>
+                    <span className="flex gap-0.5 items-end">
+                      {[0,1,2,3].map(i => (
+                        <span key={i} className="inline-block w-0.5 rounded-full bg-red-500 animate-bounce"
+                          style={{ height: `${6+i*3}px`, animationDelay: `${i*80}ms` }} />
+                      ))}
+                    </span>
+                    Patient is responding...
+                  </>
+                )}
+              </div>
+
+              {/* Live transcript while call is in progress */}
+              {callTranscript && (
+                <div className="rounded-lg bg-muted/60 px-3 py-2 border border-border/60">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Patient said:</p>
+                  <p className="text-sm text-foreground italic leading-relaxed">&ldquo;{callTranscript}&rdquo;</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Call error */}
+          {callPhase === "error" && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5">
+              <PhoneOff className="size-4 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-medium text-destructive">Call failed</p>
+                <p className="text-xs text-destructive/80 mt-0.5">{callError}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Call ended — show summary */}
+          {callPhase === "call-ended" && callAnalysis && (
+            <div className="flex gap-2">
+              <div className="shrink-0 mt-0.5 flex size-5 items-center justify-center rounded-full bg-primary/10">
+                <Sparkles className="size-3 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1.5">
+                  <PhoneOff className="size-3" />
+                  Call ended — Grok clinical analysis
+                </p>
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{callAnalysis}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Final patient response */}
-      {submitted && patientResponse && (
+      {submitted && patientResponse && callPhase === "idle" && (
         <div className="flex gap-2 pt-2 border-t border-border/60">
           <div className="shrink-0 mt-0.5 flex size-5 items-center justify-center rounded-full bg-accent/10">
             <Mic className="size-3 text-accent" />
@@ -369,8 +583,8 @@ function PromptCard({
         </div>
       )}
 
-      {/* Grok-4 clinical analysis stream */}
-      {submitted && (isAnalyzing || grokAnalysis) && (
+      {/* Grok-4 clinical analysis stream (mic/text mode only — phone call shows analysis inline) */}
+      {submitted && callPhase === "idle" && (isAnalyzing || grokAnalysis) && (
         <div className="flex gap-2 pt-2 border-t border-border/60">
           <div className="shrink-0 mt-0.5 flex size-5 items-center justify-center rounded-full bg-primary/10">
             <Sparkles className="size-3 text-primary" />
