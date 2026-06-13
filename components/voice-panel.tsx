@@ -395,7 +395,7 @@ function PromptCard({
   )
 }
 
-export function VoicePanel() {
+export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) {
   const [addedFacts, setAddedFacts] = useState<Set<string>>(new Set())
   const [notEnabled, setNotEnabled] = useState(false)
 
@@ -531,7 +531,12 @@ export function VoicePanel() {
                     {addedFacts.size} patient-reported fact{addedFacts.size > 1 ? "s" : ""} captured via Grok Voice
                   </span>
                 </div>
-                <Button variant="ghost" size="sm" className="text-emerald-700 hover:bg-emerald-100 text-xs">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-emerald-700 hover:bg-emerald-100 text-xs"
+                  onClick={onViewTimeline}
+                >
                   View Timeline <ChevronRight className="size-3 ml-1" />
                 </Button>
               </div>
