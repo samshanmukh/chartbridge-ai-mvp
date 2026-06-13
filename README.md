@@ -1,33 +1,55 @@
-# chartbridge-ai-mvp
+# ChartBridge AI
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+Turn fragmented patient records into one reconciled care story. ChartBridge pulls a
+patient's **live FHIR** record, detects reconciliation gaps no single source reveals,
+runs **RAG over the clinic's unstructured records** (faxes, referral letters, call
+notes), and uses **Grok** to generate clinician-ready and patient-friendly reports.
 
-## Built with v0
+Built for the Autonomous Healthcare Hackathon (xAI · Vercel · Inngest). Theme:
+patient agency. UI bootstrapped with [v0](https://v0.app); live data layer + AI added on top.
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+## How it works
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_aoR9sHQUaybJDabyZr1tDmUm6uZ2)
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+```
+Live FHIR (SMART sandbox)  ─┐
+Detected care gaps         ─┼─►  Grok report (clinician + patient)
+Clinic CRM corpus (RAG)    ─┘        grounded + source-cited
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **FHIR** — zero-auth SMART Health IT launcher; a real Synthea patient (Marsha Hayes)
+  normalized into one bundle. [lib/fhir.ts](lib/fhir.ts), [app/api/patient/route.ts](app/api/patient/route.ts)
+- **Gap detection** — deterministic, data-driven (stale meds, Beers-criteria flags,
+  overdue screening, latex-allergy-plus-surgery). [lib/derive.ts](lib/derive.ts)
+- **Patient CRM + RAG** — synthetic-but-coherent unstructured records, retrieved via
+  turbopuffer (+ OpenAI embeddings), with OpenAI-in-memory and lexical fallbacks.
+  [lib/crm.ts](lib/crm.ts), [lib/vector.ts](lib/vector.ts)
+- **Reports** — Grok `grok-4.3` generates the dual report; a deterministic engine is
+  the fallback. [lib/report.ts](lib/report.ts), [app/api/report/route.ts](app/api/report/route.ts)
+- **Autonomous pipeline** — Inngest fans out FHIR fetch + CRM indexing + Grok report as
+  retriable steps. [lib/inngest/functions.ts](lib/inngest/functions.ts)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Graceful degradation:** with no API keys the app still runs end-to-end on live FHIR
+with a deterministic report and lexical RAG. Keys upgrade it to real Grok + turbopuffer.
 
-## Learn More
+## Run locally
 
-To learn more, take a look at the following resources:
+```bash
+pnpm install
+cp .env.local.example .env.local   # all keys optional — see the file
+pnpm dev                           # http://localhost:3000
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+Optional — watch the autonomous pipeline step-by-step:
+
+```bash
+npx inngest-cli@latest dev         # Dev UI at http://localhost:8288
+# then: curl -X POST localhost:3000/api/pipeline
+```
+
+## Environment
+
+See [.env.local.example](.env.local.example). Summary: `XAI_API_KEY` enables Grok
+report generation; `OPENAI_API_KEY` (+ `TURBOPUFFER_API_KEY`, `TURBOPUFFER_REGION`)
+enable real vector RAG. FHIR needs no key.
+
+> Synthetic data only. Not a medical device; does not diagnose, treat, or replace clinical judgment.

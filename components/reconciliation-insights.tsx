@@ -15,6 +15,16 @@ import {
   Lightbulb,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePatient } from "@/lib/patient-context"
+import type { InsightDTO } from "@/lib/types"
+
+const iconByKey: Record<InsightDTO["iconKey"], React.ElementType> = {
+  med: Pill,
+  trend: TrendingUp,
+  calendar: Calendar,
+  alert: AlertTriangle,
+  merge: GitMerge,
+}
 
 type Severity = "high" | "medium" | "low"
 
@@ -103,13 +113,22 @@ const severityConfig: Record<Severity, { label: string; cardClass: string; badge
 }
 
 export function ReconciliationInsights() {
+  const { data } = usePatient()
   const [resolved, setResolved] = useState<Set<string>>(new Set())
+
+  const liveInsights: Insight[] = data?.insights
+    ? data.insights.map((i) => ({
+        ...i,
+        icon: iconByKey[i.iconKey] ?? AlertTriangle,
+        resolved: false,
+      }))
+    : insights
 
   const handleResolve = (id: string) => {
     setResolved((prev) => new Set([...prev, id]))
   }
 
-  const unresolvedCount = insights.filter((i) => !resolved.has(i.id)).length
+  const unresolvedCount = liveInsights.filter((i) => !resolved.has(i.id)).length
 
   return (
     <section className="py-16 px-6 bg-muted/40">
@@ -121,24 +140,24 @@ export function ReconciliationInsights() {
               <h2 className="text-2xl font-bold text-foreground">Reconciliation Insights</h2>
             </div>
             <p className="text-muted-foreground">
-              AI-detected care gaps and data conflicts &middot; {unresolvedCount} of {insights.length} unresolved
+              AI-detected care gaps and data conflicts &middot; {unresolvedCount} of {liveInsights.length} unresolved
             </p>
           </div>
           <div className="flex gap-2 mt-2 sm:mt-0">
             <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-              {insights.filter((i) => i.severity === "high" && !resolved.has(i.id)).length} High
+              {liveInsights.filter((i) => i.severity === "high" && !resolved.has(i.id)).length} High
             </Badge>
             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-              {insights.filter((i) => i.severity === "medium" && !resolved.has(i.id)).length} Medium
+              {liveInsights.filter((i) => i.severity === "medium" && !resolved.has(i.id)).length} Medium
             </Badge>
             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-              {insights.filter((i) => i.severity === "low" && !resolved.has(i.id)).length} Low
+              {liveInsights.filter((i) => i.severity === "low" && !resolved.has(i.id)).length} Low
             </Badge>
           </div>
         </div>
 
         <div className="flex flex-col gap-4">
-          {insights.map((insight) => {
+          {liveInsights.map((insight) => {
             const cfg = severityConfig[insight.severity]
             const InsightIcon = insight.icon
             const isResolved = resolved.has(insight.id)

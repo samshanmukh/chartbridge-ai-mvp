@@ -11,6 +11,7 @@ import { CareStory } from "@/components/care-story"
 import { DemoSidebar } from "@/components/demo-sidebar"
 import { Button } from "@/components/ui/button"
 import { Activity } from "lucide-react"
+import { PatientProvider } from "@/lib/patient-context"
 
 export default function Page() {
   const [showDashboard, setShowDashboard] = useState(false)
@@ -45,34 +46,37 @@ export default function Page() {
       {/* Hero / Landing */}
       <HeroSection onStartReview={handleStartReview} onViewDemo={handleStartReview} />
 
-      {/* Dashboard layout — shown after CTA click */}
+      {/* Dashboard layout — shown after CTA click. One live FHIR fetch is shared
+          across every panel via PatientProvider. */}
       {showDashboard && (
-        <div className="flex relative">
-          {/* Sticky sidebar — desktop only */}
-          <aside className="hidden lg:block sticky top-0 self-start h-screen overflow-y-auto pl-6 pt-6 pb-6 shrink-0">
-            <DemoSidebar onSectionNav={scrollTo} />
-          </aside>
+        <PatientProvider>
+          <div className="flex relative">
+            {/* Sticky sidebar — desktop only */}
+            <aside className="hidden lg:block sticky top-0 self-start h-screen overflow-y-auto pl-6 pt-6 pb-6 shrink-0">
+              <DemoSidebar onSectionNav={scrollTo} />
+            </aside>
 
-          {/* Main content column */}
-          <div className="flex-1 min-w-0">
-            <div ref={intakeRef}>
-              <DataIntakeDashboard />
+            {/* Main content column */}
+            <div className="flex-1 min-w-0">
+              <div ref={intakeRef}>
+                <DataIntakeDashboard />
+              </div>
+              <div ref={voiceRef}>
+                <VoicePanel />
+              </div>
+              <div ref={timelineRef}>
+                <PatientTimeline />
+              </div>
+              <div ref={insightsRef}>
+                <ReconciliationInsights />
+              </div>
+              <div ref={reportRef}>
+                <ReportGenerator />
+              </div>
+              <CareStory />
             </div>
-            <div ref={voiceRef}>
-              <VoicePanel />
-            </div>
-            <div ref={timelineRef}>
-              <PatientTimeline />
-            </div>
-            <div ref={insightsRef}>
-              <ReconciliationInsights />
-            </div>
-            <div ref={reportRef}>
-              <ReportGenerator />
-            </div>
-            <CareStory />
           </div>
-        </div>
+        </PatientProvider>
       )}
 
       {/* Footer */}
