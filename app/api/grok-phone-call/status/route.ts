@@ -9,6 +9,11 @@ export const runtime = "nodejs"
 // Simple map: callSid → latest Twilio call status string (ringing, in-progress, etc.)
 export const callStatusStore: Map<string, string> = new Map()
 
+// Also handle GET so Vercel health-checks don't 405
+export async function GET() {
+  return new NextResponse("OK", { status: 200 })
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.text()
   const params = new URLSearchParams(body)
@@ -20,5 +25,9 @@ export async function POST(req: NextRequest) {
     callStatusStore.set(callSid, callStatus)
   }
 
-  return new NextResponse("OK", { status: 200 })
+  // Twilio expects 200 with no auth — return plain text
+  return new NextResponse("<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response/>", {
+    status: 200,
+    headers: { "Content-Type": "text/xml" },
+  })
 }
