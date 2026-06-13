@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -145,6 +145,42 @@ export function DataIntakeDashboard() {
   const { data, voiceFacts } = usePatient()
   const [sources, setSources] = useState<DataSource[]>(initialSources)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, string>>({})
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  const handleUploadClick = (id: string) => {
+    fileInputRefs.current[id]?.click()
+  }
+
+  const handleFileChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingId(id)
+    setUploadedFiles((prev) => ({ ...prev, [id]: file.name }))
+
+    // Simulate processing the uploaded file
+    setTimeout(() => {
+      setSources((prev) =>
+        prev.map((s) => {
+          if (s.id !== id) return s
+          const addedRecords = Math.floor(Math.random() * 8) + 3
+          const newConfidence = Math.min(100, s.confidence + Math.floor(Math.random() * 15) + 10)
+          return {
+            ...s,
+            lastUpdated: "Just now",
+            status: "connected" as SourceStatus,
+            records: s.records + addedRecords,
+            confidence: newConfidence,
+          }
+        })
+      )
+      setUploadingId(null)
+      // Reset input so same file can be re-uploaded
+      if (fileInputRefs.current[id]) fileInputRefs.current[id]!.value = ""
+    }, 1800)
+  }
 
   // Replace mock cards with live FHIR-derived sources as soon as they load.
   // The voice card lights up once the patient answers intake questions.
@@ -236,10 +272,21 @@ export function DataIntakeDashboard() {
             const StatusIcon = statusConfig[source.status].icon
             const SourceIcon = source.icon
             const isLoading = loadingId === source.id
+            const isUploading = uploadingId === source.id
+            const isBusy = isLoading || isUploading
 
             return (
+              <div key={source.id} className="contents">
+              {/* Hidden file input per source */}
+              <input
+                type="file"
+                accept=".pdf,.csv,.json,.xml,.hl7,.fhir,.txt,.xlsx"
+                className="hidden"
+                ref={(el) => { fileInputRefs.current[source.id] = el }}
+                onChange={(e) => handleFileChange(source.id, e)}
+              />
+
               <Card
-                key={source.id}
                 className={cn(
                   "border transition-all duration-200 hover:shadow-md",
                   source.status === "needs-review" && "border-amber-200/80",
@@ -284,11 +331,16 @@ export function DataIntakeDashboard() {
                 </CardHeader>
 
                 <CardContent className="pt-0">
-                  {isLoading ? (
+                  {isBusy ? (
                     <div className="flex flex-col gap-2">
                       <Skeleton className="h-3 w-3/4" />
                       <Skeleton className="h-1.5 w-full" />
                       <Skeleton className="h-3 w-1/2" />
+                      {isUploading && (
+                        <p className="text-xs text-muted-foreground animate-pulse mt-1">
+                          Processing {uploadedFiles[source.id] ?? "file"}...
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-3">
@@ -306,11 +358,20 @@ export function DataIntakeDashboard() {
                         <ConfidenceBar value={source.confidence} status={source.status} />
                       </div>
 
+                      {/* Last uploaded file name */}
+                      {uploadedFiles[source.id] && (
+                        <p className="text-xs text-emerald-600 flex items-center gap-1 truncate">
+                          <CheckCircle className="size-3 shrink-0" />
+                          {uploadedFiles[source.id]}
+                        </p>
+                      )}
+
                       <div className="flex gap-2 pt-1">
                         <Button
                           variant="outline"
                           size="sm"
                           className="flex-1 text-xs h-7"
+                          disabled={isBusy}
                           onClick={() => handleRefresh(source.id)}
                         >
                           <RefreshCw className="size-3 mr-1" />
@@ -320,6 +381,8 @@ export function DataIntakeDashboard() {
                           variant={source.status === "missing" ? "default" : "outline"}
                           size="sm"
                           className="flex-1 text-xs h-7"
+                          disabled={isBusy}
+                          onClick={() => handleUploadClick(source.id)}
                         >
                           <Upload className="size-3 mr-1" />
                           {source.status === "missing" ? "Connect" : "Upload"}
@@ -329,6 +392,7 @@ export function DataIntakeDashboard() {
                   )}
                 </CardContent>
               </Card>
+              </div>
             )
           })}
         </div>

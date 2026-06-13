@@ -62,7 +62,7 @@ export default function Page() {
                 <DataIntakeDashboard />
               </div>
               <div ref={voiceRef}>
-                <VoicePanel />
+                <VoicePanel onViewTimeline={() => scrollTo("timeline")} />
               </div>
               <div ref={timelineRef}>
                 <PatientTimeline />
