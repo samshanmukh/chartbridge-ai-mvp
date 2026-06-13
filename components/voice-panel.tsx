@@ -1,14 +1,12 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Mic, MicOff, Sparkles, CheckCircle, ChevronRight, Volume2, Send, Loader2 } from "lucide-react"
+import { Mic, Sparkles, CheckCircle, ChevronRight, Volume2, Send, Loader2, MicOff } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useChat, type UIMessage } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
 
 interface GapPrompt {
   id: string
@@ -37,20 +35,6 @@ const gapPrompts: GapPrompt[] = [
   },
 ]
 
-interface PromptResult {
-  patientResponse: string
-  grokAnalysis: string
-  isStreaming: boolean
-}
-
-function getUIMessageText(msg: UIMessage): string {
-  if (!msg.parts || !Array.isArray(msg.parts)) return ""
-  return msg.parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("")
-}
-
 function PromptCard({
   prompt,
   onResult,
@@ -62,37 +46,48 @@ function PromptCard({
   const [submitted, setSubmitted] = useState(false)
   const [patientResponse, setPatientResponse] = useState("")
   const [isActive, setIsActive] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [analysis, setAnalysis] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/grok-voice" }),
-  })
-
-  const isStreaming = status === "streaming" || status === "submitted"
-
-  // Extract the latest assistant message text
-  const assistantMessages = messages.filter((m) => m.role === "assistant")
-  const latestAnalysis = assistantMessages.length > 0
-    ? getUIMessageText(assistantMessages[assistantMessages.length - 1])
-    : ""
-
-  // Notify parent when done streaming
-  useEffect(() => {
-    if (status === "ready" && submitted && latestAnalysis) {
-      onResult(prompt.id)
-    }
-  }, [status, submitted, latestAnalysis, onResult, prompt.id])
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!patientInput.trim() || isStreaming) return
     const response = patientInput.trim()
     setPatientResponse(response)
     setSubmitted(true)
-    sendMessage(
-      { text: response },
-      { body: { context: { question: prompt.question } } }
-    )
     setPatientInput("")
+    setIsStreaming(true)
+    setAnalysis("")
+
+    try {
+      const res = await fetch("/api/grok-voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: response,
+          context: { question: prompt.question },
+        }),
+      })
+
+      if (!res.ok) throw new Error(`API error: ${res.status}`)
+
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value, { stream: true })
+          setAnalysis((prev) => prev + chunk)
+        }
+      }
+    } catch (err) {
+      setAnalysis("Unable to connect to Grok. Please check your API key and try again.")
+    } finally {
+      setIsStreaming(false)
+      onResult(prompt.id)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -118,7 +113,7 @@ function PromptCard({
           >
             {prompt.tag}
           </Badge>
-          {submitted && status === "ready" && latestAnalysis && (
+          {submitted && !isStreaming && analysis && (
             <Badge
               variant="outline"
               className="text-xs border-emerald-200 text-emerald-700 bg-emerald-50"
@@ -202,7 +197,7 @@ function PromptCard({
       )}
 
       {/* Grok streaming analysis */}
-      {submitted && (isStreaming || latestAnalysis) && (
+      {submitted && (isStreaming || analysis) && (
         <div className="flex gap-2 mt-3 pt-3 border-t border-border/60">
           <div className="shrink-0 mt-0.5 flex size-5 items-center justify-center rounded-full bg-primary/10">
             <Sparkles className="size-3 text-primary" />
@@ -223,7 +218,7 @@ function PromptCard({
               )}
             </p>
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-              {latestAnalysis}
+              {analysis}
               {isStreaming && (
                 <span className="inline-block w-0.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" />
               )}
