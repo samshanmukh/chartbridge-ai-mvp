@@ -140,7 +140,7 @@ function PromptCard({
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
 
   const { status, transcript, error, startSession, stopListening, disconnect } = useGrokVoice()
-  const isGrokActive = !notEnabled && status !== "idle" && status !== "error" && status !== "not-enabled"
+  const isGrokActive = !notEnabled && status !== "idle" && status !== "error"
 
   useEffect(() => {
     return () => { recognitionRef.current?.stop() }
