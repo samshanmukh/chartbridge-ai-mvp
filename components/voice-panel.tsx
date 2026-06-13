@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Mic, Sparkles, CheckCircle, ChevronRight, Volume2, Loader2, Square, AlertCircle } from "lucide-react"
+import { Mic, Sparkles, CheckCircle, ChevronRight, Volume2, Loader2, Square, AlertCircle, ExternalLink, Send, MicOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useGrokVoice } from "@/hooks/use-grok-voice"
 
@@ -59,11 +59,52 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   },
 }
 
+// Browser speech-to-text types
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognitionInstance
+    webkitSpeechRecognition: new () => SpeechRecognitionInstance
+  }
+}
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean; interimResults: boolean; lang: string
+  start(): void; stop(): void
+  onresult: ((e: SpeechRecognitionEvent) => void) | null
+  onerror: ((e: { error: string }) => void) | null
+  onend: (() => void) | null
+}
+interface SpeechRecognitionEvent extends Event {
+  results: { length: number; [i: number]: { isFinal: boolean; [j: number]: { transcript: string } } }
+}
+
+async function analyzeWithGrok(
+  response: string,
+  question: string,
+  onChunk: (text: string) => void
+) {
+  const res = await fetch("/api/grok-voice", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: response, context: { question } }),
+  })
+  const reader = res.body?.getReader()
+  const decoder = new TextDecoder()
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      onChunk(decoder.decode(value, { stream: true }))
+    }
+  }
+}
+
 function PromptCard({
   prompt,
+  notEnabled,
   onResult,
 }: {
   prompt: GapPrompt
+  notEnabled: boolean
   onResult: (id: string) => void
 }) {
   const [submitted, setSubmitted] = useState(false)
@@ -71,11 +112,75 @@ function PromptCard({
   const [grokAnalysis, setGrokAnalysis] = useState("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
 
-  const { status, transcript, error, startSession, stopListening, disconnect } = useGrokVoice()
+  // Fallback state (used when Grok Voice not enabled)
+  const [fallbackActive, setFallbackActive] = useState(false)
+  const [fallbackInput, setFallbackInput] = useState("")
+  const [isListening, setIsListening] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
 
-  const isActive = status !== "idle" && status !== "error"
+  const { status, transcript, error, startSession, stopListening, disconnect } = useGrokVoice()
+  const isGrokActive = !notEnabled && status !== "idle" && status !== "error" && status !== "not-enabled"
+
+  useEffect(() => {
+    return () => { recognitionRef.current?.stop() }
+  }, [])
+
+  const handleSubmitFallback = useCallback(async () => {
+    if (!fallbackInput.trim() || isAnalyzing) return
+    recognitionRef.current?.stop()
+    setIsListening(false)
+    const response = fallbackInput.trim()
+    setPatientResponse(response)
+    setFallbackInput("")
+    setSubmitted(true)
+    setIsAnalyzing(true)
+    let acc = ""
+    try {
+      await analyzeWithGrok(response, prompt.question, (chunk) => {
+        acc += chunk
+        setGrokAnalysis(acc)
+      })
+      onResult(prompt.id)
+    } catch {
+      setGrokAnalysis("Unable to analyze. Please try again.")
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }, [fallbackInput, isAnalyzing, prompt.question, prompt.id, onResult])
+
+  const toggleMic = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+      return
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { alert("Speech recognition not supported. Try Chrome."); return }
+    const rec = new SR()
+    rec.continuous = true; rec.interimResults = true; rec.lang = "en-US"
+    recognitionRef.current = rec
+    let final = ""
+    rec.onresult = (e) => {
+      let interim = ""
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript + " "
+        else interim += e.results[i][0].transcript
+      }
+      setFallbackInput(final + interim)
+    }
+    rec.onerror = () => setIsListening(false)
+    rec.onend = () => setIsListening(false)
+    rec.start()
+    setIsListening(true)
+  }, [isListening])
 
   const handleAskPatient = useCallback(async () => {
+    if (notEnabled) {
+      setFallbackActive(true)
+      setTimeout(() => textareaRef.current?.focus(), 50)
+      return
+    }
     await startSession(prompt.question, async (finalTranscript) => {
       if (!finalTranscript.trim()) return
       const response = finalTranscript.trim()
@@ -83,28 +188,12 @@ function PromptCard({
       setSubmitted(true)
       setIsAnalyzing(true)
       disconnect()
-
-      // Send transcript to grok-4 text model for clinical analysis
+      let acc = ""
       try {
-        const res = await fetch("/api/grok-voice", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: response,
-            context: { question: prompt.question },
-          }),
+        await analyzeWithGrok(response, prompt.question, (chunk) => {
+          acc += chunk
+          setGrokAnalysis(acc)
         })
-        const reader = res.body?.getReader()
-        const decoder = new TextDecoder()
-        let analysis = ""
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            analysis += decoder.decode(value, { stream: true })
-            setGrokAnalysis(analysis)
-          }
-        }
         onResult(prompt.id)
       } catch {
         setGrokAnalysis("Unable to analyze response. Please try again.")
@@ -112,15 +201,15 @@ function PromptCard({
         setIsAnalyzing(false)
       }
     })
-  }, [prompt.question, prompt.id, startSession, disconnect, onResult])
+  }, [notEnabled, prompt.question, prompt.id, startSession, disconnect, onResult])
 
-  const cfg = status !== "idle" ? statusConfig[status] : null
+  const cfg = !notEnabled && status !== "idle" && statusConfig[status] ? statusConfig[status] : null
 
   return (
     <div
       className={cn(
         "rounded-xl border p-4 flex flex-col gap-3 transition-all duration-300",
-        isActive ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+        isGrokActive ? "border-primary/30 bg-primary/5" : "border-border bg-card"
       )}
     >
       {/* Header */}
@@ -129,7 +218,7 @@ function PromptCard({
           <Badge variant="outline" className="text-xs border-primary/20 text-primary bg-primary/5">
             {prompt.tag}
           </Badge>
-          {submitted && !isActive && (
+          {submitted && (
             <Badge variant="outline" className="text-xs border-emerald-200 text-emerald-700 bg-emerald-50">
               <CheckCircle className="size-3 mr-1" />
               Added to Timeline
@@ -137,7 +226,7 @@ function PromptCard({
           )}
         </div>
 
-        {!isActive && !submitted && (
+        {!isGrokActive && !fallbackActive && !submitted && (
           <Button size="sm" variant="outline" className="text-xs h-7 shrink-0" onClick={handleAskPatient}>
             <Volume2 className="size-3 mr-1" />
             Ask Patient
@@ -153,28 +242,22 @@ function PromptCard({
         <p className="text-sm text-foreground leading-relaxed">{prompt.question}</p>
       </div>
 
-      {/* Live session status badge */}
+      {/* Live Grok Voice status badge */}
       {cfg && (
         <div className="flex items-center justify-between gap-2">
           <Badge variant="outline" className={cn("text-xs gap-1.5", cfg.className)}>
             {status === "listening" && (
               <span className="flex gap-0.5 items-end">
                 {[0, 1, 2, 3].map((i) => (
-                  <span
-                    key={i}
-                    className="inline-block w-0.5 rounded-full bg-red-500 animate-bounce"
-                    style={{ height: `${6 + i * 3}px`, animationDelay: `${i * 80}ms` }}
-                  />
+                  <span key={i} className="inline-block w-0.5 rounded-full bg-red-500 animate-bounce"
+                    style={{ height: `${6 + i * 3}px`, animationDelay: `${i * 80}ms` }} />
                 ))}
               </span>
             )}
-            {(status === "connecting" || status === "thinking") && (
-              <Loader2 className="size-3 animate-spin" />
-            )}
+            {(status === "connecting" || status === "thinking") && <Loader2 className="size-3 animate-spin" />}
             {status === "speaking-question" && <Volume2 className="size-3" />}
             {cfg.label}
           </Badge>
-
           {status === "listening" && (
             <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={stopListening}>
               <Square className="size-3" />
@@ -184,24 +267,57 @@ function PromptCard({
         </div>
       )}
 
-      {/* Error */}
-      {status === "error" && error && (
+      {/* Grok Voice error (non not-enabled) */}
+      {!notEnabled && status === "error" && error && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">
           <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
           <p className="text-xs text-destructive">{error}</p>
         </div>
       )}
 
-      {/* Live transcript while listening */}
+      {/* Live Grok transcript */}
       {(status === "listening" || status === "thinking") && transcript && (
         <div className="rounded-lg bg-muted/60 px-3 py-2 border border-border/60">
           <p className="text-xs font-medium text-muted-foreground mb-1">Live transcript</p>
           <p className="text-sm text-foreground italic leading-relaxed">
             &ldquo;{transcript}&rdquo;
-            {status === "listening" && (
-              <span className="inline-block w-0.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" />
-            )}
+            {status === "listening" && <span className="inline-block w-0.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" />}
           </p>
+        </div>
+      )}
+
+      {/* Fallback text + mic input */}
+      {fallbackActive && !submitted && (
+        <div className="mt-1 pt-3 border-t border-border/60 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              {isListening
+                ? <><span className="flex gap-0.5 items-end">{[0,1,2,3].map(i => <span key={i} className="inline-block w-0.5 rounded-full bg-red-500 animate-bounce" style={{ height: `${6+i*3}px`, animationDelay: `${i*80}ms` }} />)}</span><span className="text-red-600 font-semibold">Listening...</span></>
+                : <><Mic className="size-3" />Patient response</>
+              }
+            </p>
+            <Button size="sm" variant={isListening ? "destructive" : "outline"} className="h-7 text-xs gap-1" onClick={toggleMic}>
+              {isListening ? <><Square className="size-3" />Stop</> : <><Mic className="size-3" />Use Mic</>}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <textarea
+              ref={textareaRef}
+              value={fallbackInput}
+              onChange={(e) => setFallbackInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmitFallback() } }}
+              placeholder={isListening ? "Speak now — transcribing..." : "Type or use mic..."}
+              rows={2}
+              className={cn(
+                "flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors",
+                isListening ? "border-red-300 ring-2 ring-red-100" : "border-input"
+              )}
+            />
+            <Button size="sm" onClick={handleSubmitFallback} disabled={!fallbackInput.trim() || isAnalyzing} className="self-end h-9">
+              {isAnalyzing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Press Enter or Send — Grok-4 will analyze the response</p>
         </div>
       )}
 
@@ -229,21 +345,13 @@ function PromptCard({
               Grok clinical analysis
               {isAnalyzing && (
                 <span className="flex gap-0.5 items-end ml-1">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className="inline-block w-0.5 h-2 bg-primary rounded-full animate-bounce"
-                      style={{ animationDelay: `${i * 100}ms` }}
-                    />
-                  ))}
+                  {[0,1,2].map((i) => <span key={i} className="inline-block w-0.5 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: `${i*100}ms` }} />)}
                 </span>
               )}
             </p>
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
               {grokAnalysis}
-              {isAnalyzing && (
-                <span className="inline-block w-0.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" />
-              )}
+              {isAnalyzing && <span className="inline-block w-0.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" />}
             </p>
           </div>
         </div>
@@ -254,6 +362,19 @@ function PromptCard({
 
 export function VoicePanel() {
   const [addedFacts, setAddedFacts] = useState<Set<string>>(new Set())
+  const [notEnabled, setNotEnabled] = useState(false)
+
+  // Probe the ephemeral token once on mount to detect not-enabled state
+  useEffect(() => {
+    fetch("/api/grok-voice-token", { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.detail && (data.detail as string).toLowerCase().includes("not authorized")) {
+          setNotEnabled(true)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const handleResult = useCallback((id: string) => {
     setAddedFacts((prev) => new Set([...prev, id]))
@@ -290,8 +411,10 @@ export function VoicePanel() {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs text-muted-foreground">grok-voice-latest connected</span>
+                <div className={cn("size-2 rounded-full", notEnabled ? "bg-amber-400" : "bg-emerald-500 animate-pulse")} />
+                <span className="text-xs text-muted-foreground">
+                  {notEnabled ? "Grok Voice — pending activation" : "grok-voice-latest connected"}
+                </span>
               </div>
             </div>
           </CardHeader>
@@ -314,12 +437,33 @@ export function VoicePanel() {
               ))}
             </div>
 
+            {/* Not-enabled notice */}
+            {notEnabled && (
+              <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-amber-900">Grok Voice Agent not yet enabled on your xAI account</p>
+                  <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                    The realtime voice API requires activation. Until then, the cards below use browser mic + Grok-4 text analysis — the clinical intelligence still works.
+                  </p>
+                  <a
+                    href="https://console.x.ai"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 underline underline-offset-2 mt-1.5 hover:text-amber-900"
+                  >
+                    Enable at console.x.ai <ExternalLink className="size-3" />
+                  </a>
+                </div>
+              </div>
+            )}
+
             <Separator className="mb-6" />
 
             {/* Gap cards */}
             <div className="flex flex-col gap-4">
               {gapPrompts.map((prompt) => (
-                <PromptCard key={prompt.id} prompt={prompt} onResult={handleResult} />
+                <PromptCard key={prompt.id} prompt={prompt} notEnabled={notEnabled} onResult={handleResult} />
               ))}
             </div>
 
