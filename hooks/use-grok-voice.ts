@@ -142,21 +142,16 @@ export function useGrokVoice(): UseGrokVoiceReturn {
     setError("")
     setStatus("connecting")
 
-    // 1. Get ephemeral token from our server
-    let token: string
+    // 1. Fetch the API key from our server (keeps it out of client bundle)
+    let apiKey: string
     try {
-      const res = await fetch("/api/grok-voice-token", { method: "POST" })
+      const res = await fetch("/api/grok-realtime")
       const data = await res.json()
-      // 403 = Voice Agent not enabled on this xAI team account
-      if (res.status === 403 || (data.detail && (data.detail as string).toLowerCase().includes("not authorized"))) {
-        setStatus("not-enabled")
-        return
-      }
-      if (!res.ok || !data.token) throw new Error(data.error ?? "No token returned")
-      token = data.token
+      if (!res.ok || !data.apiKey) throw new Error(data.error ?? "No API key returned")
+      apiKey = data.apiKey
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      setError(`Could not get Grok Voice token: ${msg}`)
+      setError(`Could not connect to Grok Voice: ${msg}`)
       setStatus("error")
       return
     }
@@ -164,27 +159,28 @@ export function useGrokVoice(): UseGrokVoiceReturn {
     // 2. Open AudioContext
     audioCtxRef.current = new AudioContext({ sampleRate: SAMPLE_RATE })
 
-    // 3. Connect to Grok Voice WebSocket via ephemeral token in the protocol field
+    // 3. Connect directly to xAI realtime WebSocket
+    // xAI accepts the key as a query param as an alternative to the Authorization header
     const ws = new WebSocket(
-      "wss://api.x.ai/v1/realtime?model=grok-voice-latest",
-      [`xai-client-secret.${token}`]
+      `wss://api.x.ai/v1/realtime?model=grok-voice-latest&api_key=${apiKey}`
     )
     wsRef.current = ws
 
     ws.onopen = () => {
-      // Configure the Grok voice session
+      // Configure the Grok voice session — matches official xAI spec exactly
       ws.send(JSON.stringify({
         type: "session.update",
         session: {
-          voice: "ara",
-          instructions: `You are Grok Voice, a warm clinical AI assistant embedded in ChartBridge — a patient data reconciliation platform.
+          voice: "Eve",
+          instructions: `You are Grok Voice, a warm and professional clinical AI assistant embedded in ChartBridge — a patient data reconciliation platform.
 Your role is to ask the patient a single specific clinical question and listen carefully to their response.
 After they answer, briefly acknowledge what they said in a warm, empathetic tone (1-2 sentences max).
 Do NOT ask follow-up questions. Do NOT diagnose. Stay focused on the one question.
 The question to ask the patient is: "${question}"`,
           turn_detection: { type: "server_vad" },
+          input_audio_transcription: { model: "grok-2-audio" },
           audio: {
-            input: { format: { type: "audio/pcm", rate: SAMPLE_RATE } },
+            input:  { format: { type: "audio/pcm", rate: SAMPLE_RATE } },
             output: { format: { type: "audio/pcm", rate: SAMPLE_RATE } },
           },
         },
@@ -212,13 +208,33 @@ The question to ask the patient is: "${question}"`,
       }
 
       switch (msg.type) {
-        // Grok is speaking — play the audio chunk
+        case "session.created": {
+          // Session is ready — nothing to do, session.update already sent
+          break
+        }
+
+        // Patient started talking — cancel current Grok response to allow interruption
+        case "input_audio_buffer.speech_started": {
+          ws.send(JSON.stringify({ type: "response.cancel" }))
+          audioQueueRef.current = []
+          isPlayingRef.current = false
+          break
+        }
+
+        // Grok is speaking — play the PCM audio chunk
+        case "response.output_audio.delta": {
+          enqueueAudio(msg.delta as string)
+          break
+        }
+
+        // Also handle older event name for compatibility
         case "response.audio.delta": {
           enqueueAudio(msg.delta as string)
           break
         }
 
         // Grok finished speaking — open the mic for the patient
+        case "response.output_audio.done":
         case "response.audio.done": {
           // Small delay so last audio chunk finishes playing
           setTimeout(async () => {
@@ -232,14 +248,20 @@ The question to ask the patient is: "${question}"`,
           break
         }
 
-        // Live transcript of patient speech
+        // Live transcript of patient's speech (input audio transcription)
         case "conversation.item.input_audio_transcription.delta": {
           accTranscriptRef.current += (msg.delta as string) ?? ""
           setTranscript(accTranscriptRef.current)
           break
         }
 
-        // Final transcript
+        // Grok speaking transcript delta (for display only — not the patient's words)
+        case "response.output_audio_transcript.delta": {
+          // We don't surface Grok's own words as the patient transcript
+          break
+        }
+
+        // Final transcript of patient speech
         case "conversation.item.input_audio_transcription.completed": {
           const final = (msg.transcript as string) ?? accTranscriptRef.current
           accTranscriptRef.current = final

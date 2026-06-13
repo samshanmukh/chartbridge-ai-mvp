@@ -364,16 +364,14 @@ export function VoicePanel() {
   const [addedFacts, setAddedFacts] = useState<Set<string>>(new Set())
   const [notEnabled, setNotEnabled] = useState(false)
 
-  // Probe the ephemeral token once on mount to detect not-enabled state
+  // Validate the xAI realtime connection once on mount
   useEffect(() => {
-    fetch("/api/grok-voice-token", { method: "POST" })
+    fetch("/api/grok-realtime/validate", { method: "POST" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.detail && (data.detail as string).toLowerCase().includes("not authorized")) {
-          setNotEnabled(true)
-        }
+        if (!data.ok) setNotEnabled(true)
       })
-      .catch(() => {})
+      .catch(() => setNotEnabled(true))
   }, [])
 
   const handleResult = useCallback((id: string) => {
