@@ -267,11 +267,42 @@ function PromptCard({
         </div>
       )}
 
-      {/* Grok Voice error (non not-enabled) */}
+      {/* Grok Voice error */}
       {!notEnabled && status === "error" && error && (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">
-          <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
-          <p className="text-xs text-destructive">{error}</p>
+        <div className="flex flex-col gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+            <p className="text-xs text-destructive leading-relaxed">{error}</p>
+          </div>
+          {error.toLowerCase().includes("microphone access denied") && (
+            <div className="flex flex-col gap-1.5 pl-6">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                This preview runs inside an iframe which blocks microphone access. Open the app directly in its own tab to use Grok Voice.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10"
+                  onClick={() => window.open(window.location.href, "_blank")}
+                >
+                  <ExternalLink className="size-3" />
+                  Open in new tab
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setFallbackActive(true)
+                    setTimeout(() => textareaRef.current?.focus(), 50)
+                  }}
+                >
+                  Use text instead
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -411,7 +442,7 @@ export function VoicePanel() {
               <div className="flex items-center gap-2">
                 <div className={cn("size-2 rounded-full", notEnabled ? "bg-amber-400" : "bg-emerald-500 animate-pulse")} />
                 <span className="text-xs text-muted-foreground">
-                  {notEnabled ? "Grok Voice — pending activation" : "grok-voice-latest connected"}
+                  {notEnabled ? "Grok Voice — pending activation" : "grok-voice-latest ready"}
                 </span>
               </div>
             </div>
@@ -434,6 +465,28 @@ export function VoicePanel() {
                 </div>
               ))}
             </div>
+
+            {/* Iframe mic restriction notice — shown when app is embedded in an iframe */}
+            {!notEnabled && typeof window !== "undefined" && window.self !== window.top && (
+              <div className="mb-4 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                <Mic className="size-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-900">Microphone requires a direct browser tab</p>
+                  <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">
+                    This preview is embedded in an iframe. Chrome blocks microphone access in iframes. Open the app in its own tab to use Grok Voice fully — or use the text fallback below.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 h-7 text-xs gap-1.5 border-blue-300 text-blue-800 hover:bg-blue-100"
+                    onClick={() => window.open(window.location.href, "_blank")}
+                  >
+                    <ExternalLink className="size-3" />
+                    Open in new tab
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Not-enabled notice */}
             {notEnabled && (
