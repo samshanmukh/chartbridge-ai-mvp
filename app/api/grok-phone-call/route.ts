@@ -30,13 +30,18 @@ export async function POST(req: NextRequest) {
   const protocol = host.startsWith("localhost") ? "http" : "https"
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? `${protocol}://${host}`).replace(/\/$/, "")
 
+  // Append Vercel deployment protection bypass secret to all Twilio callback URLs
+  // so Twilio's requests are not blocked by Vercel's authentication wall.
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? ""
+  const bypass = bypassSecret ? `&x-vercel-protection-bypass=${bypassSecret}` : ""
+
   try {
     const client = twilio(accountSid, authToken)
 
-    // Encode the clinical question into the TwiML URL so the bridge can use it
+    // Encode the clinical question into the TwiML URL so the voice can use it
     const encodedQuestion = encodeURIComponent(question)
-    const twimlUrl = `${appUrl}/api/grok-phone-call/twiml?question=${encodedQuestion}`
-    const statusUrl = `${appUrl}/api/grok-phone-call/status`
+    const twimlUrl   = `${appUrl}/api/grok-phone-call/twiml?question=${encodedQuestion}${bypass}`
+    const statusUrl  = `${appUrl}/api/grok-phone-call/status?${bypass ? `x-vercel-protection-bypass=${bypassSecret}` : ""}`
 
     const call = await client.calls.create({
       to: phoneNumber,

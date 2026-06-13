@@ -16,7 +16,10 @@ export async function GET(req: NextRequest) {
   const protocol = host.startsWith("localhost") ? "http" : "https"
   const appUrl  = (process.env.NEXT_PUBLIC_APP_URL ?? `${protocol}://${host}`).replace(/\/$/, "")
 
-  const recordingCallbackUrl = `${appUrl}/api/grok-phone-call/recording?callSid=${encodeURIComponent(callSid)}&question=${encodeURIComponent(question)}`
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? ""
+  const bypass = bypassSecret ? `&x-vercel-protection-bypass=${bypassSecret}` : ""
+
+  const recordingCallbackUrl = `${appUrl}/api/grok-phone-call/recording?callSid=${encodeURIComponent(callSid)}&question=${encodeURIComponent(question)}${bypass}`
 
   // Use Grok TTS voice "Grok" to speak the question, then record the patient.
   // Twilio's <Say> with Polly:Joanna is the fallback since Grok TTS is HTTP only.
