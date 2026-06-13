@@ -11,6 +11,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.206
         version: 3.0.206(react@19.2.4)(zod@3.25.76)
+      '@ai-sdk/xai':
+        specifier: ^3.0.95
+        version: 3.0.95(zod@3.25.76)
       '@base-ui/react':
         specifier: ^1.5.0
         version: 1.5.0(@date-fns/tz@1.4.1)(@types/react@19.2.14)(date-fns@4.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -78,6 +81,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/openai-compatible@2.0.50':
+    resolution: {integrity: sha512-HyuxddF2Yv5G8qxK/0uksAINjQ4h6TpwOqHuqzsCM0u78/JWAW2OXcIplQeB44PIAORgPjbMzrw9DhnPYHMskA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/provider-utils@4.0.29':
     resolution: {integrity: sha512-uhukHaCBvqkwBHkT8C2PrnqKTCoLn3pdHXqtcR9I8ErH+flbzgW4o7VHSNIup9LRu+WBvZIZDQLsx6rwl2tiOA==}
     engines: {node: '>=18'}
@@ -93,6 +102,12 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       react: ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
+
+  '@ai-sdk/xai@3.0.95':
+    resolution: {integrity: sha512-8pN/bekiBy4Nf0h9G934mpNg+izj+sAgKjqd3GcoGZKhj2I7d40khQlFxgzoA2xOQNzMfcKKNAUQb22EulB8OQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -2109,6 +2124,12 @@ snapshots:
       '@vercel/oidc': 3.2.0
       zod: 3.25.76
 
+  '@ai-sdk/openai-compatible@2.0.50(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.10
+      '@ai-sdk/provider-utils': 4.0.29(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/provider-utils@4.0.29(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
@@ -2129,6 +2150,13 @@ snapshots:
       throttleit: 2.1.0
     transitivePeerDependencies:
       - zod
+
+  '@ai-sdk/xai@3.0.95(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/openai-compatible': 2.0.50(zod@3.25.76)
+      '@ai-sdk/provider': 3.0.10
+      '@ai-sdk/provider-utils': 4.0.29(zod@3.25.76)
+      zod: 3.25.76
 
   '@alloc/quick-lru@5.2.0': {}
 
