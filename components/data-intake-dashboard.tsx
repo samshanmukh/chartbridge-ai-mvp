@@ -79,7 +79,7 @@ const initialSources: DataSource[] = [
     id: "wearable",
     icon: Watch,
     name: "Wearable Data",
-    description: "Continuous glucose monitor, heart rate",
+    description: "Apple Health — heart, oxygen, sleep",
     status: "connected",
     records: 89,
     lastUpdated: "Jun 13, 2026",

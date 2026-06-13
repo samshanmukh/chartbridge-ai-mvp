@@ -45,6 +45,7 @@ function buildContext(
     `ACTIVE MEDICATIONS: ${active.map((m) => `${m.text} (since ${m.authoredOn?.slice(0, 10) ?? "?"})`).join("; ") || "none"}.`,
     `STOPPED MEDICATIONS: ${stopped.map((m) => m.text).join("; ") || "none"}.`,
     `RECENT LABS: ${recentLabs.map((l) => `${l.text}=${l.value ?? "?"}${l.flag && l.flag !== "normal" ? ` [${l.flag}]` : ""} (${l.effective?.slice(0, 10)})`).join("; ") || "none"}.`,
+    `PATIENT-CONNECTED WEARABLE (Apple Health, real): ${b.vitals.map((v) => `${v.text}=${v.value ?? "?"}`).join("; ") || "none"}.`,
     `ALLERGIES: ${b.allergies.map((a) => `${a.substance}${a.criticality ? ` (${a.criticality})` : ""}`).join("; ") || "none"}.`,
     `IMMUNIZATIONS ON FILE: ${b.immunizations.length}.`,
     ``,
@@ -112,6 +113,13 @@ function buildFallback(
         : "No laboratory results on file.",
     },
     {
+      title: "Wearable Signals (patient-connected)",
+      flag: gaps.some((g) => g.kind === "wearable"),
+      content:
+        b.vitals.map((v) => `${v.text}: ${v.value}`).join("\n") ||
+        "No patient-connected wearable data.",
+    },
+    {
       title: "Care Gaps",
       flag: high.length > 0,
       content:
@@ -162,7 +170,7 @@ export async function generateReport(
   citations: Citation[]
 ): Promise<ReportPayload> {
   const fallback = buildFallback(b, gaps, citations);
-  const system = `You are a clinical documentation assistant for ChartBridge AI. You reconcile fragmented patient data into TWO reports: a clinician brief and a plain-English patient summary. GROUND every statement strictly in the data provided — never invent labs, medications, diagnoses, or dates. When a statement is supported by a clinic CRM record, cite it inline like [source name]. Return STRICT JSON of the form {"clinician":[{"title":string,"content":string,"flag":boolean}],"patient":[{"title":string,"content":string,"flag":boolean}]}. Clinician sections, in order: Clinical Summary, Active Concerns, Medication Reconciliation, Notable Labs, Care Gaps, Questions to Clarify at Next Visit. Patient sections, in order: What We Found, What Changed, What to Ask Your Doctor, Next Steps. Use \\n between list items. Set flag=true on sections that need clinician attention. Patient sections must be warm, clear, and 6th-grade reading level.`;
+  const system = `You are a clinical documentation assistant for ChartBridge AI. You reconcile fragmented patient data into TWO reports: a clinician brief and a plain-English patient summary. GROUND every statement strictly in the data provided — never invent labs, medications, diagnoses, or dates. When a statement is supported by a clinic CRM record, cite it inline like [source name]. Return STRICT JSON of the form {"clinician":[{"title":string,"content":string,"flag":boolean}],"patient":[{"title":string,"content":string,"flag":boolean}]}. Clinician sections, in order: Clinical Summary, Active Concerns, Medication Reconciliation, Notable Labs, Wearable Signals (patient-connected), Care Gaps, Questions to Clarify at Next Visit. The Wearable Signals section must reconcile the patient-connected Apple Health data against the chart and call out anything (e.g. overnight oxygen desaturations) that appears in no clinical source. Patient sections, in order: What We Found, What Changed, What to Ask Your Doctor, Next Steps. Use \\n between list items. Set flag=true on sections that need clinician attention. Patient sections must be warm, clear, and 6th-grade reading level.`;
   const user = buildContext(b, gaps, citations);
   const { value, source } = await grokJSON<{
     clinician: ReportSectionDTO[];

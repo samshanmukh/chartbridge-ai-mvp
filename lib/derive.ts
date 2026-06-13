@@ -8,6 +8,10 @@ import type {
   Gap,
   InsightDTO,
 } from "./types";
+import healthSummary from "./sam-health.json";
+
+// Real total of Apple Health records behind the wearable layer (lib/sam-health.json).
+const WEARABLE_RECORDS = healthSummary.meta?.totalRecordsScanned ?? 0;
 
 export type { Gap } from "./types";
 
@@ -15,13 +19,15 @@ const GAP_ACTION: Record<Gap["kind"], string> = {
   "med-stale":
     "Confirm the patient is still taking this medication and document current status; renew, adjust, or discontinue as appropriate.",
   beers:
-    "Reassess the need for this first-generation antihistamine; consider a second-generation agent (loratadine/cetirizine) to lower anticholinergic burden.",
+    "Reassess chronic nightly first-generation antihistamine use; it adds anticholinergic burden, fragments sleep architecture, and may be masking an underlying sleep complaint. Consider a second-generation agent (loratadine/cetirizine) and address the root cause.",
   screening:
     "Order age-appropriate screening labs and reconcile any results obtained at outside facilities into the chart.",
   perioperative:
     "Ensure the allergy banner propagates to every care setting and is flagged for any future procedure.",
   reconcile:
     "Reconcile the conflicting records and update the structured chart to match.",
+  wearable:
+    "Review the patient-connected wearable trend against the chart; if corroborated, order the appropriate work-up (e.g., a sleep study) and document it. This signal exists in no clinical source today.",
 };
 
 const GAP_ICON: Record<Gap["kind"], InsightDTO["iconKey"]> = {
@@ -30,6 +36,7 @@ const GAP_ICON: Record<Gap["kind"], InsightDTO["iconKey"]> = {
   screening: "calendar",
   perioperative: "alert",
   reconcile: "merge",
+  wearable: "trend",
 };
 
 export function deriveInsights(gaps: Gap[]): InsightDTO[] {
@@ -93,7 +100,7 @@ export function detectGaps(b: PatientBundle): Gap[] {
     }
   }
 
-  // 2. First-generation antihistamine (Beers criteria for sedation/anticholinergic load)
+  // 2. Chronic first-generation antihistamine — anticholinergic burden + sleep disruption
   const beers = activeMeds.find((m) =>
     /diphenhydramine|hydroxyzine|chlorpheniramine/i.test(m.text)
   );
@@ -102,9 +109,9 @@ export function detectGaps(b: PatientBundle): Gap[] {
       id: "beers-antihistamine",
       kind: "beers",
       severity: "medium",
-      title: "First-generation antihistamine on long-term use",
-      detail: `${beers.text} is a sedating first-generation antihistamine (Beers criteria). Long-term daily use raises anticholinergic burden; a second-generation agent (loratadine/cetirizine) is usually preferred.`,
-      question: `You have ${beers.text} on your list. How often do you take it, and does it make you drowsy during the day?`,
+      title: "Chronic first-generation antihistamine taken for sleep",
+      detail: `${beers.text} is a sedating first-generation antihistamine. Long-standing nightly use raises anticholinergic burden and disrupts sleep architecture — and self-medicating for sleep can mask an underlying sleep-disordered breathing problem rather than treat it. A second-generation agent (loratadine/cetirizine) is preferred for allergy control.`,
+      question: `You have ${beers.text} on your list and it looks like you take it nightly. How often do you rely on it to fall asleep, and do you still wake up feeling tired?`,
       tag: "Medication Safety",
     });
   }
@@ -139,6 +146,24 @@ export function detectGaps(b: PatientBundle): Gap[] {
       detail: `Documented latex allergy alongside surgical history (${surgical.text}). Any future procedure must be flagged latex-free; confirm this is propagated to all care settings.`,
       question: `You have a latex allergy on file and a past surgery. Has every clinic and hospital you have visited been told about the latex allergy?`,
       tag: "Safety Flag",
+    });
+  }
+
+  // 5. Wearable-only signal: overnight SpO2 desaturations + fragmented sleep that
+  //    appear in NO clinical source. The headline "no single source reveals" gap.
+  const spo2Vital = b.vitals.find((v) => /spo|oxygen saturation/i.test(v.text));
+  const sleepVital = b.vitals.find((v) => /^sleep/i.test(v.text));
+  const below90 = Number(spo2Vital?.value?.match(/(\d+)\s*readings?\s*<\s*90/i)?.[1]);
+  const awakenings = spo2Vital && sleepVital?.value?.match(/~?([\d.]+)\s*awakenings/i)?.[1];
+  if (below90 && below90 > 0) {
+    gaps.push({
+      id: "wearable-sdb",
+      kind: "wearable",
+      severity: below90 >= 20 ? "high" : "medium",
+      title: "Possible sleep-disordered breathing (wearable signal, not in EHR)",
+      detail: `Apple Watch recorded ${below90} overnight blood-oxygen readings below 90%${awakenings ? ` alongside ~${awakenings} awakenings per night` : ""}. There is no sleep study, OSA diagnosis, or related note anywhere in the structured chart. Combined with nightly antihistamine self-medication for sleep, this pattern warrants a sleep-apnea work-up — and it is invisible to every individual data source.`,
+      question: `Your watch is showing your blood oxygen dipping low overnight and a lot of waking up. Do you snore, gasp, or wake up unrefreshed — and has anyone ever checked you for sleep apnea?`,
+      tag: "Wearable Alert",
     });
   }
 
@@ -185,6 +210,9 @@ export function deriveSources(b: PatientBundle): DataSourceDTO[] {
   const medsNeedReview = gaps.some(
     (g) => g.kind === "med-stale" || g.kind === "beers"
   );
+  const wearableConnected = b.vitals.some((v) => /apple watch|spo|hrv|sdnn/i.test(v.text));
+  const lastVital = latest(b.vitals.map((v) => v.effective));
+  const wearableNeedsReview = gaps.some((g) => g.kind === "wearable");
 
   return [
     {
@@ -212,13 +240,17 @@ export function deriveSources(b: PatientBundle): DataSourceDTO[] {
       confidence: medsNeedReview ? 64 : 90,
     },
     {
-      // Synthea has no wearable data — honestly shown as patient-connectable.
+      // Patient-connected Apple Health — real export (lib/sam-health.json).
       id: "wearable",
       ...SOURCE_META.wearable,
-      status: "missing",
-      records: 0,
-      lastUpdated: "Never",
-      confidence: 0,
+      status: wearableConnected
+        ? wearableNeedsReview
+          ? "needs-review"
+          : "connected"
+        : "missing",
+      records: wearableConnected ? WEARABLE_RECORDS : 0,
+      lastUpdated: wearableConnected ? fmt(lastVital) : "Never",
+      confidence: wearableConnected ? 88 : 0,
     },
     {
       id: "voice",
@@ -302,8 +334,35 @@ export function deriveTimeline(b: PatientBundle): TimelineEventDTO[] {
     });
   }
 
+  // Wearable (Apple Health) signals — the patient-connected layer.
+  const wearableTexts = [
+    "Oxygen Saturation",
+    "Resting Heart Rate",
+    "ECG",
+    "Sleep",
+    "VO₂ Max",
+  ];
+  for (const key of wearableTexts) {
+    const v = b.vitals.find((x) => x.text.includes(key));
+    if (!v?.effective || !v.value) continue;
+    const flagged = /spo|oxygen saturation/i.test(v.text);
+    ev.push({
+      id: `w-${ev.length}`,
+      iso: v.effective,
+      date: fmt(v.effective),
+      title: `Wearable: ${v.text}`,
+      detail: v.value,
+      source: "wearable",
+      confidence: flagged ? 70 : 90,
+      needsReview: flagged,
+      flagReason: flagged
+        ? "Overnight desaturations with no matching clinical record"
+        : undefined,
+    });
+  }
+
   // newest first, cap to a clean set
   return ev
     .sort((a, b2) => new Date(b2.iso).getTime() - new Date(a.iso).getTime())
-    .slice(0, 12);
+    .slice(0, 14);
 }

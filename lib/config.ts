@@ -24,3 +24,10 @@ export const hasTurbopuffer = () =>
   !!process.env.TURBOPUFFER_API_KEY && !!process.env.TURBOPUFFER_REGION;
 export const hasUpstash = () =>
   !!process.env.UPSTASH_VECTOR_REST_URL && !!process.env.UPSTASH_VECTOR_REST_TOKEN;
+
+// xAI Collections — hosted vector DB for the clinic-CRM corpus (embeddings done
+// server-side by xAI). Needs the management key to seed and a collection id to
+// query. XAI_COLLECTION_ID is produced by POST /api/collections/seed.
+export const XAI_COLLECTION_ID = process.env.XAI_COLLECTION_ID || "";
+export const hasXaiCollections = () =>
+  !!process.env.XAI_API_KEY && !!XAI_COLLECTION_ID;
