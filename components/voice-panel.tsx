@@ -1,12 +1,69 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Mic, Sparkles, CheckCircle, ChevronRight, Volume2, Send, Loader2, MicOff } from "lucide-react"
+import { Mic, Sparkles, CheckCircle, ChevronRight, Volume2, Send, Loader2, MicOff, Square } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+// ── Web Speech API type declarations ──────────────────────────────────────────
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition
+    webkitSpeechRecognition: new () => SpeechRecognition
+  }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start(): void
+  stop(): void
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null
+  onend: (() => void) | null
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number
+  item(index: number): SpeechRecognitionResult
+  [index: number]: SpeechRecognitionResult
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number
+  item(index: number): SpeechRecognitionAlternative
+  [index: number]: SpeechRecognitionAlternative
+  isFinal: boolean
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string
+  confidence: number
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+function speakText(text: string, onEnd?: () => void) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.rate = 0.95
+  utterance.pitch = 1
+  utterance.volume = 1
+  if (onEnd) utterance.onend = onEnd
+  window.speechSynthesis.speak(utterance)
+}
 
 interface GapPrompt {
   id: string
@@ -48,10 +105,85 @@ function PromptCard({
   const [isActive, setIsActive] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [analysis, setAnalysis] = useState("")
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [voiceError, setVoiceError] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+
+  // Cleanup recognition on unmount
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop()
+      window.speechSynthesis?.cancel()
+    }
+  }, [])
+
+  const startListening = useCallback(() => {
+    setVoiceError("")
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setVoiceError("Speech recognition is not supported in this browser. Try Chrome.")
+      return
+    }
+    const recognition = new SpeechRecognition()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = "en-US"
+    recognitionRef.current = recognition
+
+    let finalTranscript = ""
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interimTranscript = ""
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i]
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript + " "
+        } else {
+          interimTranscript += result[0].transcript
+        }
+      }
+      setPatientInput(finalTranscript + interimTranscript)
+    }
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error !== "aborted") {
+        setVoiceError(`Mic error: ${event.error}. Please check microphone permissions.`)
+      }
+      setIsListening(false)
+    }
+
+    recognition.onend = () => {
+      setIsListening(false)
+    }
+
+    recognition.start()
+    setIsListening(true)
+  }, [])
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop()
+    setIsListening(false)
+  }, [])
+
+  const handleAskPatient = useCallback(() => {
+    setIsActive(true)
+    setIsSpeaking(true)
+    speakText(prompt.question, () => {
+      setIsSpeaking(false)
+      // Auto-start mic after question finishes speaking
+      setTimeout(() => {
+        startListening()
+        textareaRef.current?.focus()
+      }, 300)
+    })
+  }, [prompt.question, startListening])
 
   const handleSubmit = async () => {
     if (!patientInput.trim() || isStreaming) return
+    stopListening()
     const response = patientInput.trim()
     setPatientResponse(response)
     setSubmitted(true)
@@ -128,14 +260,17 @@ function PromptCard({
             size="sm"
             variant="outline"
             className="text-xs h-7 shrink-0"
-            onClick={() => {
-              setIsActive(true)
-              setTimeout(() => textareaRef.current?.focus(), 50)
-            }}
+            onClick={handleAskPatient}
           >
             <Volume2 className="size-3 mr-1" />
             Ask Patient
           </Button>
+        )}
+        {isSpeaking && (
+          <Badge variant="outline" className="text-xs border-amber-200 text-amber-700 bg-amber-50 animate-pulse shrink-0">
+            <Volume2 className="size-3 mr-1" />
+            Speaking...
+          </Badge>
         )}
       </div>
 
@@ -150,19 +285,61 @@ function PromptCard({
       {/* Patient input */}
       {isActive && !submitted && (
         <div className="mt-3 pt-3 border-t border-border/60">
-          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-            <Mic className="size-3" />
-            Patient response (type or speak):
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              {isListening ? (
+                <>
+                  <span className="flex gap-0.5 items-end">
+                    {[0, 1, 2, 3].map((i) => (
+                      <span
+                        key={i}
+                        className="inline-block w-0.5 rounded-full bg-red-500 animate-bounce"
+                        style={{ height: `${6 + i * 3}px`, animationDelay: `${i * 80}ms` }}
+                      />
+                    ))}
+                  </span>
+                  <span className="text-red-600 font-semibold">Listening...</span>
+                </>
+              ) : (
+                <>
+                  <Mic className="size-3" />
+                  Patient response:
+                </>
+              )}
+            </p>
+            {/* Mic toggle button */}
+            <Button
+              size="sm"
+              variant={isListening ? "destructive" : "outline"}
+              className="h-7 text-xs gap-1"
+              onClick={isListening ? stopListening : startListening}
+              disabled={isSpeaking}
+            >
+              {isListening ? (
+                <>
+                  <Square className="size-3" />
+                  Stop
+                </>
+              ) : (
+                <>
+                  <Mic className="size-3" />
+                  Use Mic
+                </>
+              )}
+            </Button>
+          </div>
           <div className="flex gap-2">
             <textarea
               ref={textareaRef}
               value={patientInput}
               onChange={(e) => setPatientInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type the patient's response here..."
+              placeholder={isListening ? "Speak now — transcribing..." : "Type or use mic to capture patient response..."}
               rows={2}
-              className="flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className={cn(
+                "flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors",
+                isListening ? "border-red-300 ring-2 ring-red-100" : "border-input"
+              )}
             />
             <Button
               size="sm"
@@ -177,7 +354,14 @@ function PromptCard({
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Press Enter to submit</p>
+          {voiceError && (
+            <p className="text-xs text-destructive mt-1">{voiceError}</p>
+          )}
+          {!voiceError && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {isListening ? "Click Stop when done, then Send to analyze" : "Press Enter or Send to submit to Grok"}
+            </p>
+          )}
         </div>
       )}
 
@@ -284,7 +468,7 @@ export function VoicePanel() {
                 Powered by xAI Grok via Vercel AI Gateway
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Click &ldquo;Ask Patient&rdquo; on any gap below, enter their response, and Grok will analyze it live
+                Click &ldquo;Ask Patient&rdquo; — the question plays aloud, then the mic opens for the patient to speak
               </p>
             </div>
 
