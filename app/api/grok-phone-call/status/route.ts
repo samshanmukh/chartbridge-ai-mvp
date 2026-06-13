@@ -25,9 +25,6 @@ export async function POST(req: NextRequest) {
     callStatusStore.set(callSid, callStatus)
   }
 
-  // Twilio expects 200 with no auth — return plain text
-  return new NextResponse("<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response/>", {
-    status: 200,
-    headers: { "Content-Type": "text/xml" },
-  })
+  // Twilio status callbacks don't need TwiML — 204 No Content is the correct response
+  return new NextResponse(null, { status: 204 })
 }
