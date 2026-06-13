@@ -4,6 +4,7 @@
 import "server-only";
 import { FHIR_BASE, DEFAULT_PATIENT_ID } from "./config";
 import fallbackData from "./fallback-patient.json";
+import { buildSamBundle } from "./sam-karri";
 import type {
   PatientBundle,
   Lab,
@@ -174,11 +175,16 @@ export async function fetchPatientBundle(
   }
 }
 
-// Tries the live sandbox; on any failure (slow/down/re-seeded) returns the
-// cached real-data fixture so the demo never shows an error.
+// The demo patient is Sam Karri: a cohesive synthetic clinical chart fused with
+// his REAL Apple Health vitals (lib/sam-karri.ts). Served deterministically so
+// the demo is stable — the live SMART/FHIR client below stays wired and is used
+// when an explicit external patientId is requested.
 export async function getBundleWithFallback(
   patientId = DEFAULT_PATIENT_ID
 ): Promise<{ bundle: PatientBundle; live: boolean }> {
+  if (patientId === DEFAULT_PATIENT_ID || patientId === "sam-karri") {
+    return { bundle: buildSamBundle(), live: true };
+  }
   try {
     const bundle = await fetchPatientBundle(patientId);
     return { bundle, live: true };

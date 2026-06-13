@@ -130,7 +130,7 @@ export interface VoicePromptDTO {
 // Data-driven care gap (drives reconciliation insights + voice intake prompts).
 export interface Gap {
   id: string;
-  kind: "med-stale" | "screening" | "beers" | "perioperative" | "reconcile";
+  kind: "med-stale" | "screening" | "beers" | "perioperative" | "reconcile" | "wearable";
   severity: Severity;
   title: string;
   detail: string;

@@ -9,8 +9,11 @@ import {
   EMBEDDING_DIMS,
   hasOpenAI,
   hasTurbopuffer,
+  hasXaiCollections,
+  XAI_COLLECTION_ID,
 } from "./config";
 import { seedCrmDocs } from "./crm";
+import { searchCollection } from "./xai-collections";
 import type { PatientBundle, CrmDoc, Citation } from "./types";
 
 let openai: OpenAI | null = null;
@@ -75,7 +78,7 @@ function toCitations(
 
 export interface RetrieveResult {
   citations: Citation[];
-  mode: "turbopuffer" | "openai-memory" | "lexical";
+  mode: "xai-collections" | "turbopuffer" | "openai-memory" | "lexical";
 }
 
 export async function retrieveCrm(
@@ -84,6 +87,17 @@ export async function retrieveCrm(
   topK = 4
 ): Promise<RetrieveResult> {
   const docs = seedCrmDocs(bundle);
+
+  // Tier 0 — xAI Collections (hosted vector DB; embeddings done by xAI).
+  if (hasXaiCollections()) {
+    try {
+      const { citations, ok } = await searchCollection(XAI_COLLECTION_ID, query, topK);
+      if (ok && citations.length) return { citations, mode: "xai-collections" };
+      console.warn("[vector] xai-collections returned no rows, falling back");
+    } catch (e) {
+      console.warn("[vector] xai-collections failed, falling back:", e);
+    }
+  }
 
   if (hasTurbopuffer() && hasOpenAI()) {
     try {
