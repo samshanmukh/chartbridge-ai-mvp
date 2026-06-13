@@ -8,6 +8,7 @@ export type GrokVoiceStatus =
   | "speaking-question"  // Grok is speaking the gap question to the patient
   | "listening"          // Mic is open, patient is speaking
   | "thinking"           // Grok is processing
+  | "not-enabled"        // xAI Voice Agent not yet enabled on this account
   | "error"
 
 const SAMPLE_RATE = 24000
@@ -77,7 +78,7 @@ export function useGrokVoice(): UseGrokVoiceReturn {
     audioQueueRef.current = []
     isPlayingRef.current = false
     accTranscriptRef.current = ""
-    setStatus("idle")
+    setStatus((prev) => prev === "not-enabled" ? "not-enabled" : "idle")
     setTranscript("")
   }, [])
 
@@ -146,6 +147,11 @@ export function useGrokVoice(): UseGrokVoiceReturn {
     try {
       const res = await fetch("/api/grok-voice-token", { method: "POST" })
       const data = await res.json()
+      // 403 = Voice Agent not enabled on this xAI team account
+      if (res.status === 403 || (data.detail && (data.detail as string).toLowerCase().includes("not authorized"))) {
+        setStatus("not-enabled")
+        return
+      }
       if (!res.ok || !data.token) throw new Error(data.error ?? "No token returned")
       token = data.token
     } catch (err: unknown) {
