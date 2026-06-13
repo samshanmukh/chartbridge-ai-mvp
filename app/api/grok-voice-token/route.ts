@@ -11,6 +11,9 @@ function loadApiKey(): string | undefined {
   }
 }
 
+// Mints a short-lived ephemeral session token for browser WebSocket connections.
+// The browser connects via: new WebSocket(url, [`xai-client-secret.${token}`])
+// Spec: POST /v1/realtime/client_secrets
 export async function POST() {
   const apiKey = loadApiKey()
   if (!apiKey) {
@@ -18,28 +21,39 @@ export async function POST() {
   }
 
   try {
-    const res = await fetch("https://api.x.ai/v1/realtime/ephemeral-tokens", {
+    const res = await fetch("https://api.x.ai/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "grok-voice-latest",
-        expires_in: 600, // 10 minutes
+        expires_after: { seconds: 300 }, // 5 minutes
       }),
     })
 
+    const data = await res.json()
+
     if (!res.ok) {
-      const err = await res.text()
-      console.error("[v0] Ephemeral token error:", err)
-      return Response.json({ error: "Failed to get ephemeral token", detail: err }, { status: res.status })
+      console.error("[grok-voice-token] xAI error:", JSON.stringify(data))
+      return Response.json(
+        { error: "Failed to mint session token", detail: data },
+        { status: res.status }
+      )
     }
 
-    const data = await res.json()
-    return Response.json({ token: data.client_secret ?? data.token ?? data })
+    // Spec response: { "value": "token-...", "expires_at": 1234567890 }
+    const token: string = data.value
+    const expiresAt: number = data.expires_at
+
+    if (!token) {
+      console.error("[grok-voice-token] unexpected response shape:", JSON.stringify(data))
+      return Response.json({ error: "No token in response", detail: data }, { status: 500 })
+    }
+
+    return Response.json({ token, expiresAt })
   } catch (err) {
-    console.error("[v0] Ephemeral token fetch error:", err)
-    return Response.json({ error: "Network error fetching ephemeral token" }, { status: 500 })
+    console.error("[grok-voice-token] fetch error:", err)
+    return Response.json({ error: "Network error contacting xAI" }, { status: 500 })
   }
 }
