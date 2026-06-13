@@ -16,11 +16,16 @@ export async function GET(req: NextRequest) {
   const protocol = host.startsWith("localhost") ? "http" : "https"
   const appUrl  = (process.env.NEXT_PUBLIC_APP_URL ?? `${protocol}://${host}`).replace(/\/$/, "")
 
-  const recordingCallbackUrl = `${appUrl}/api/grok-phone-call/recording?callSid=${encodeURIComponent(callSid)}&question=${encodeURIComponent(question)}`
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? ""
+  const withBypass = (url: string) =>
+    bypassSecret
+      ? `${url}${url.includes("?") ? "&" : "?"}x-vercel-protection-bypass=${bypassSecret}`
+      : url
 
-  // Use Grok TTS voice "Grok" to speak the question, then record the patient.
-  // Twilio's <Say> with Polly:Joanna is the fallback since Grok TTS is HTTP only.
-  // After the beep, record up to 60s; on silence for 3s the recording ends.
+  const recordingCallbackUrl = withBypass(
+    `${appUrl}/api/grok-phone-call/recording?callSid=${encodeURIComponent(callSid)}&question=${encodeURIComponent(question)}`
+  )
+
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Joanna" language="en-US">${escapeXml(question)}</Say>
@@ -32,8 +37,6 @@ export async function GET(req: NextRequest) {
     timeout="3"
     finishOnKey="any"
     playBeep="true"
-    recordingStatusCallback="${appUrl}/api/grok-phone-call/recording-status"
-    recordingStatusCallbackMethod="POST"
   />
   <Say>We did not receive a recording. Goodbye.</Say>
 </Response>`
