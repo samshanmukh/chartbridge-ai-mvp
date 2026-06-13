@@ -25,10 +25,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Derive the public app URL from the incoming request if not explicitly set.
-  // This works on Vercel deployments and local dev automatically.
+  // Strip trailing slash to prevent double-slash in constructed URLs.
   const host = req.headers.get("host") ?? "localhost:3000"
   const protocol = host.startsWith("localhost") ? "http" : "https"
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `${protocol}://${host}`
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? `${protocol}://${host}`).replace(/\/$/, "")
 
   try {
     const client = twilio(accountSid, authToken)
