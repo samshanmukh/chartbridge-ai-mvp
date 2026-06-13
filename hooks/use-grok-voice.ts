@@ -314,7 +314,16 @@ Your role is to ask the patient one specific clinical question and listen carefu
 Start by asking the question immediately. After they answer, briefly acknowledge what they said in 1-2 warm sentences.
 Do NOT ask follow-up questions. Do NOT diagnose. Stay focused on this single question.
 The question to ask is: "${question}"`,
-          turn_detection: { type: "server_vad" },
+          turn_detection: {
+            type: "server_vad",
+            // Wait 1.5 s of silence before treating the patient's turn as done
+            // (default is ~300–500 ms which cuts off too early mid-sentence)
+            silence_duration_ms: 1500,
+            // Include 400 ms of audio before speech starts so the first word isn't clipped
+            prefix_padding_ms: 400,
+            // Require a confident speech signal before starting turn detection
+            threshold: 0.5,
+          },
           input_audio_transcription: { model: "grok-2-audio" },
           audio: {
             input: { format: { type: "audio/pcm", rate: SAMPLE_RATE } },
@@ -375,7 +384,10 @@ The question to ask is: "${question}"`,
         }
 
         case "input_audio_buffer.speech_stopped": {
-          setStatus("thinking")
+          // Keep showing "listening" until transcription completes — do NOT
+          // flip to "thinking" here, otherwise the patient sees the UI drop
+          // before they have actually finished speaking their full answer.
+          // The transition to "thinking" happens in transcription.completed.
           break
         }
 
@@ -401,13 +413,12 @@ The question to ask is: "${question}"`,
         // Final patient transcript — hand off to Grok-4 clinical analysis
         case "conversation.item.input_audio_transcription.completed": {
           const final = (msg.transcript as string) ?? accTranscriptRef.current
+          if (!final.trim()) break // ignore empty transcriptions (noise, breathing)
           accTranscriptRef.current = final
           setTranscript(final)
-          if (final.trim()) {
-            onTranscriptRef.current?.(final)
-          }
-          cleanupMic()
           setStatus("thinking")
+          cleanupMic()
+          onTranscriptRef.current?.(final)
           break
         }
 
