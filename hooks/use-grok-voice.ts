@@ -314,16 +314,10 @@ Your role is to ask the patient one specific clinical question and listen carefu
 Start by asking the question immediately. After they answer, briefly acknowledge what they said in 1-2 warm sentences.
 Do NOT ask follow-up questions. Do NOT diagnose. Stay focused on this single question.
 The question to ask is: "${question}"`,
-          turn_detection: {
-            type: "server_vad",
-            // Wait 1.5 s of silence before treating the patient's turn as done
-            // (default is ~300–500 ms which cuts off too early mid-sentence)
-            silence_duration_ms: 1500,
-            // Include 400 ms of audio before speech starts so the first word isn't clipped
-            prefix_padding_ms: 400,
-            // Require a confident speech signal before starting turn detection
-            threshold: 0.5,
-          },
+          // Disable automatic VAD — the patient controls when they are done
+          // by pressing the "Done Speaking" button, which manually commits
+          // the audio buffer. This prevents any premature cut-off.
+          turn_detection: null,
           input_audio_transcription: { model: "grok-2-audio" },
           audio: {
             input: { format: { type: "audio/pcm", rate: SAMPLE_RATE } },
@@ -372,22 +366,6 @@ The question to ask is: "${question}"`,
             ws.send(JSON.stringify({ type: "response.create" }))
             setStatus("speaking-question")
           }
-          break
-        }
-
-        // User started speaking — interrupt Grok immediately
-        case "input_audio_buffer.speech_started": {
-          interruptPlayback()
-          ws.send(JSON.stringify({ type: "response.cancel" }))
-          setStatus("listening")
-          break
-        }
-
-        case "input_audio_buffer.speech_stopped": {
-          // Keep showing "listening" until transcription completes — do NOT
-          // flip to "thinking" here, otherwise the patient sees the UI drop
-          // before they have actually finished speaking their full answer.
-          // The transition to "thinking" happens in transcription.completed.
           break
         }
 
@@ -451,6 +429,12 @@ The question to ask is: "${question}"`,
   // ── stopListening ────────────────────────────────────────────────────────────
 
   const stopListening = useCallback(() => {
+    const ws = wsRef.current
+    if (ws?.readyState === WebSocket.OPEN) {
+      // Commit the buffered audio and request a transcription + response
+      ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
+      ws.send(JSON.stringify({ type: "response.create" }))
+    }
     cleanupMic()
     isSessionReadyRef.current = false
     setStatus("thinking")
