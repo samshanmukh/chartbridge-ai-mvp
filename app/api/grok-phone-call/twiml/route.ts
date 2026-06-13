@@ -9,7 +9,11 @@ export const runtime = "nodejs"
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const question = searchParams.get("question") ?? "How are you feeling today?"
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
+
+  // Derive host from request so this works on any deployment without extra config
+  const host = req.headers.get("host") ?? "localhost:3000"
+  const protocol = host.startsWith("localhost") ? "http" : "https"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `${protocol}://${host}`
 
   // Convert https:// → wss:// for the WebSocket bridge URL
   const wsUrl = appUrl.replace(/^https?:\/\//, "wss://")

@@ -19,11 +19,16 @@ export async function POST(req: NextRequest) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID
   const authToken  = process.env.TWILIO_AUTH_TOKEN
   const fromNumber = process.env.TWILIO_PHONE_NUMBER
-  const appUrl     = process.env.NEXT_PUBLIC_APP_URL
 
-  if (!accountSid || !authToken || !fromNumber || !appUrl) {
-    return NextResponse.json({ error: "Twilio environment variables not configured" }, { status: 500 })
+  if (!accountSid || !authToken || !fromNumber) {
+    return NextResponse.json({ error: "Twilio environment variables not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)" }, { status: 500 })
   }
+
+  // Derive the public app URL from the incoming request if not explicitly set.
+  // This works on Vercel deployments and local dev automatically.
+  const host = req.headers.get("host") ?? "localhost:3000"
+  const protocol = host.startsWith("localhost") ? "http" : "https"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `${protocol}://${host}`
 
   try {
     const client = twilio(accountSid, authToken)
