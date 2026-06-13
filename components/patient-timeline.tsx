@@ -16,6 +16,7 @@ import {
   Calendar,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePatient } from "@/lib/patient-context"
 
 type EventSource = "ehr" | "lab" | "medication" | "wearable" | "voice"
 
@@ -118,7 +119,13 @@ function ConfidenceDot({ value }: { value: number }) {
 }
 
 export function PatientTimeline() {
-  const [expandedId, setExpandedId] = useState<string | null>("e7")
+  const { data } = usePatient()
+  const liveEvents: TimelineEvent[] = data?.timeline ?? events
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const headerLabel = data
+    ? `Patient: ${data.bundle.demographics.name} · ${data.bundle.demographics.age ?? "?"}${data.bundle.demographics.gender ? data.bundle.demographics.gender[0].toUpperCase() : ""} · ${liveEvents.length} events reconciled`
+    : "Patient: Maria Gonzalez · Concern: Diabetes Follow-up · Jun 13, 2026"
 
   return (
     <section className="py-16 px-6 bg-background">
@@ -130,7 +137,7 @@ export function PatientTimeline() {
               <h2 className="text-2xl font-bold text-foreground">Unified Patient Timeline</h2>
             </div>
             <p className="text-muted-foreground">
-              All medical events normalized across sources &middot; {events.filter(e => e.needsReview).length} items need review
+              All medical events normalized across sources &middot; {liveEvents.filter(e => e.needsReview).length} items need review
             </p>
           </div>
 
@@ -151,7 +158,7 @@ export function PatientTimeline() {
         <Card className="overflow-hidden">
           <CardHeader className="pb-3 bg-muted/20 border-b">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Patient: Maria Gonzalez &middot; Concern: Diabetes Follow-up &middot; Jun 13, 2026
+              {headerLabel}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -159,11 +166,11 @@ export function PatientTimeline() {
               {/* Vertical line */}
               <div className="absolute left-8 top-0 bottom-0 w-px bg-border" />
 
-              {events.map((event, idx) => {
+              {liveEvents.map((event, idx) => {
                 const cfg = sourceConfig[event.source]
                 const SourceIcon = cfg.icon
                 const isExpanded = expandedId === event.id
-                const isLast = idx === events.length - 1
+                const isLast = idx === liveEvents.length - 1
 
                 return (
                   <div

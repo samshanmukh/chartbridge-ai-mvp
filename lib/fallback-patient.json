@@ -1,0 +1,533 @@
+{
+  "source": "https://launch.smarthealthit.org/v/r4/fhir",
+  "fhirVersion": "4.0.0",
+  "demographics": {
+    "id": "5fbee500-9b99-4dad-bce4-0a4de9f9f3b9",
+    "name": "Marsha Hayes",
+    "gender": "female",
+    "birthDate": "1980-07-30",
+    "age": 45
+  },
+  "problems": [
+    {
+      "text": "History of appendectomy",
+      "status": "active",
+      "onset": "2019-07-23T08:59:28+00:00"
+    },
+    {
+      "text": "Streptococcal sore throat (disorder)",
+      "status": "resolved",
+      "onset": "2013-05-22T08:59:28+00:00"
+    },
+    {
+      "text": "Rupture of appendix",
+      "status": "active",
+      "onset": "2019-07-23T08:59:28+00:00"
+    },
+    {
+      "text": "Appendicitis",
+      "status": "active",
+      "onset": "2019-07-23T08:59:28+00:00"
+    },
+    {
+      "text": "Sprain of ankle",
+      "status": "resolved",
+      "onset": "2021-01-26T08:59:28+00:00"
+    },
+    {
+      "text": "Perennial allergic rhinitis with seasonal variation",
+      "status": "active",
+      "onset": "1984-08-05T08:59:28+00:00"
+    },
+    {
+      "text": "Normal pregnancy",
+      "status": "resolved",
+      "onset": "2019-05-22T08:59:28+00:00"
+    },
+    {
+      "text": "Normal pregnancy",
+      "status": "resolved",
+      "onset": "2012-06-13T08:59:28+00:00"
+    }
+  ],
+  "medications": [
+    {
+      "text": "Seasonique 91 Day Pack",
+      "status": "stopped",
+      "authoredOn": "2018-02-28T08:59:28+00:00"
+    },
+    {
+      "text": "Penicillin V Potassium 500 MG Oral Tablet",
+      "status": "stopped",
+      "authoredOn": "2013-05-22T08:59:28+00:00"
+    },
+    {
+      "text": "Etonogestrel 68 MG Drug Implant",
+      "status": "stopped",
+      "authoredOn": "2013-03-26T08:59:28+00:00"
+    },
+    {
+      "text": "1 ML medroxyprogesterone acetate 150 MG/ML Injection",
+      "status": "stopped",
+      "authoredOn": "2011-04-06T08:59:28+00:00"
+    },
+    {
+      "text": "diphenhydrAMINE Hydrochloride 25 MG Oral Tablet",
+      "status": "active",
+      "authoredOn": "1984-08-19T08:59:28+00:00"
+    },
+    {
+      "text": "Naproxen sodium 220 MG Oral Tablet",
+      "status": "stopped",
+      "authoredOn": "2021-01-26T08:59:28+00:00"
+    },
+    {
+      "text": "NuvaRing 0.12/0.015 MG per 24HR 21 Day Vaginal Ring",
+      "status": "active",
+      "authoredOn": "2021-02-12T08:59:28+00:00"
+    }
+  ],
+  "labs": [
+    {
+      "text": "Total Cholesterol",
+      "value": "172.8 mg/dL",
+      "valueNum": 172.83852713214532,
+      "unit": "mg/dL",
+      "effective": "2011-08-10T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Platelet mean volume [Entitic volume] in Blood by Automated count",
+      "value": "10.4 fL",
+      "valueNum": 10.370506001952448,
+      "unit": "fL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Platelet distribution width [Entitic volume] in Blood by Automated count",
+      "value": "363.3 fL",
+      "valueNum": 363.2944505279404,
+      "unit": "fL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Leukocytes [#/volume] in Blood by Automated count",
+      "value": "9.9 10*3/uL",
+      "valueNum": 9.894465373398464,
+      "unit": "10*3/uL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Hematocrit [Volume Fraction] of Blood by Automated count",
+      "value": "37.2 %",
+      "valueNum": 37.18311655622524,
+      "unit": "%",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Erythrocytes [#/volume] in Blood by Automated count",
+      "value": "5.4 10*6/uL",
+      "valueNum": 5.42967503442059,
+      "unit": "10*6/uL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Low Density Lipoprotein Cholesterol",
+      "value": "90.0 mg/dL",
+      "valueNum": 90.02769832803602,
+      "unit": "mg/dL",
+      "effective": "2011-08-10T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Platelets [#/volume] in Blood by Automated count",
+      "value": "323.5 10*3/uL",
+      "valueNum": 323.49195357702223,
+      "unit": "10*3/uL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Hemoglobin A1c/Hemoglobin.total in Blood",
+      "value": "5.3 %",
+      "valueNum": 5.250706876002765,
+      "unit": "%",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Erythrocyte distribution width [Entitic volume] by Automated count",
+      "value": "40.1 fL",
+      "valueNum": 40.05119720351799,
+      "unit": "fL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "High Density Lipoprotein Cholesterol",
+      "value": "69.0 mg/dL",
+      "valueNum": 69.02607048886006,
+      "unit": "mg/dL",
+      "effective": "2017-08-16T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Low Density Lipoprotein Cholesterol",
+      "value": "81.3 mg/dL",
+      "valueNum": 81.30196307598203,
+      "unit": "mg/dL",
+      "effective": "2017-08-16T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Triglycerides",
+      "value": "119.7 mg/dL",
+      "valueNum": 119.65929611352851,
+      "unit": "mg/dL",
+      "effective": "2017-08-16T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Triglycerides",
+      "value": "117.8 mg/dL",
+      "valueNum": 117.79131767100367,
+      "unit": "mg/dL",
+      "effective": "2011-08-10T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "MCH [Entitic mass] by Automated count",
+      "value": "29.3 pg",
+      "valueNum": 29.29933465323912,
+      "unit": "pg",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Hemoglobin [Mass/volume] in Blood",
+      "value": "16.6 g/dL",
+      "valueNum": 16.563649922813834,
+      "unit": "g/dL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "High Density Lipoprotein Cholesterol",
+      "value": "63.3 mg/dL",
+      "valueNum": 63.294531378996496,
+      "unit": "mg/dL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Low Density Lipoprotein Cholesterol",
+      "value": "107.9 mg/dL",
+      "valueNum": 107.8665480140968,
+      "unit": "mg/dL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Triglycerides",
+      "value": "128.3 mg/dL",
+      "valueNum": 128.32031095776242,
+      "unit": "mg/dL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Total Cholesterol",
+      "value": "196.8 mg/dL",
+      "valueNum": 196.8251415846458,
+      "unit": "mg/dL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Total Cholesterol",
+      "value": "174.3 mg/dL",
+      "valueNum": 174.25989278754778,
+      "unit": "mg/dL",
+      "effective": "2017-08-16T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Platelet mean volume [Entitic volume] in Blood by Automated count",
+      "value": "10.9 fL",
+      "valueNum": 10.85285649589477,
+      "unit": "fL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Platelets [#/volume] in Blood by Automated count",
+      "value": "159.8 10*3/uL",
+      "valueNum": 159.79373497330133,
+      "unit": "10*3/uL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Erythrocyte distribution width [Entitic volume] by Automated count",
+      "value": "41.4 fL",
+      "valueNum": 41.378568496108564,
+      "unit": "fL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "MCHC [Mass/volume] by Automated count",
+      "value": "35.7 g/dL",
+      "valueNum": 35.6605013549657,
+      "unit": "g/dL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "MCH [Entitic mass] by Automated count",
+      "value": "29.3 pg",
+      "valueNum": 29.251279477279304,
+      "unit": "pg",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "MCV [Entitic volume] by Automated count",
+      "value": "82.7 fL",
+      "valueNum": 82.68757000022345,
+      "unit": "fL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Hematocrit [Volume Fraction] of Blood by Automated count",
+      "value": "43.9 %",
+      "valueNum": 43.8988592639467,
+      "unit": "%",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Hemoglobin [Mass/volume] in Blood",
+      "value": "14.4 g/dL",
+      "valueNum": 14.43205306524183,
+      "unit": "g/dL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Erythrocytes [#/volume] in Blood by Automated count",
+      "value": "4.2 10*6/uL",
+      "valueNum": 4.1514513605133265,
+      "unit": "10*6/uL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Leukocytes [#/volume] in Blood by Automated count",
+      "value": "7.8 10*3/uL",
+      "valueNum": 7.840564956318123,
+      "unit": "10*3/uL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "High Density Lipoprotein Cholesterol",
+      "value": "59.3 mg/dL",
+      "valueNum": 59.25256526990856,
+      "unit": "mg/dL",
+      "effective": "2011-08-10T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "MCHC [Mass/volume] by Automated count",
+      "value": "34.1 g/dL",
+      "valueNum": 34.145793813240346,
+      "unit": "g/dL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "MCV [Entitic volume] by Automated count",
+      "value": "89.9 fL",
+      "valueNum": 89.8667333261138,
+      "unit": "fL",
+      "effective": "2014-08-13T08:59:28+00:00",
+      "flag": "normal"
+    },
+    {
+      "text": "Platelet distribution width [Entitic volume] in Blood by Automated count",
+      "value": "385.4 fL",
+      "valueNum": 385.43053916482484,
+      "unit": "fL",
+      "effective": "2020-08-05T08:59:28+00:00",
+      "flag": "normal"
+    }
+  ],
+  "vitals": [
+    {
+      "text": "Blood Pressure",
+      "value": null,
+      "effective": "2011-08-10T08:59:28+00:00"
+    },
+    {
+      "text": "Body Mass Index",
+      "value": "27.8 kg/m2",
+      "effective": "2020-08-05T08:59:28+00:00"
+    },
+    {
+      "text": "Body Height",
+      "value": "155.1 cm",
+      "effective": "2020-08-05T08:59:28+00:00"
+    },
+    {
+      "text": "Body Mass Index",
+      "value": "28.8 kg/m2",
+      "effective": "2011-08-10T08:59:28+00:00"
+    },
+    {
+      "text": "Body Weight",
+      "value": "66.8 kg",
+      "effective": "2017-08-16T08:59:28+00:00"
+    },
+    {
+      "text": "Pain severity - 0-10 verbal numeric rating [Score] - Reported",
+      "value": "2.1 {score}",
+      "effective": "2017-08-16T08:59:28+00:00"
+    },
+    {
+      "text": "Blood Pressure",
+      "value": null,
+      "effective": "2020-08-05T08:59:28+00:00"
+    },
+    {
+      "text": "Pain severity - 0-10 verbal numeric rating [Score] - Reported",
+      "value": "2.5 {score}",
+      "effective": "2011-08-10T08:59:28+00:00"
+    },
+    {
+      "text": "Pain severity - 0-10 verbal numeric rating [Score] - Reported",
+      "value": "3.5 {score}",
+      "effective": "2014-08-13T08:59:28+00:00"
+    },
+    {
+      "text": "Body Weight",
+      "value": "66.8 kg",
+      "effective": "2020-08-05T08:59:28+00:00"
+    },
+    {
+      "text": "Body Height",
+      "value": "155.1 cm",
+      "effective": "2014-08-13T08:59:28+00:00"
+    },
+    {
+      "text": "Body Weight",
+      "value": "69.4 kg",
+      "effective": "2011-08-10T08:59:28+00:00"
+    },
+    {
+      "text": "Blood Pressure",
+      "value": null,
+      "effective": "2017-08-16T08:59:28+00:00"
+    },
+    {
+      "text": "Pain severity - 0-10 verbal numeric rating [Score] - Reported",
+      "value": "0.9 {score}",
+      "effective": "2020-08-05T08:59:28+00:00"
+    },
+    {
+      "text": "Body Mass Index",
+      "value": "27.8 kg/m2",
+      "effective": "2014-08-13T08:59:28+00:00"
+    },
+    {
+      "text": "Oral temperature",
+      "value": "37.8 Cel",
+      "effective": "2013-05-22T08:59:28+00:00"
+    },
+    {
+      "text": "Body Height",
+      "value": "155.1 cm",
+      "effective": "2017-08-16T08:59:28+00:00"
+    },
+    {
+      "text": "Body Mass Index",
+      "value": "27.8 kg/m2",
+      "effective": "2017-08-16T08:59:28+00:00"
+    },
+    {
+      "text": "Blood Pressure",
+      "value": null,
+      "effective": "2014-08-13T08:59:28+00:00"
+    },
+    {
+      "text": "Body Height",
+      "value": "155.1 cm",
+      "effective": "2011-08-10T08:59:28+00:00"
+    },
+    {
+      "text": "Body Weight",
+      "value": "66.8 kg",
+      "effective": "2014-08-13T08:59:28+00:00"
+    }
+  ],
+  "allergies": [
+    {
+      "substance": "Allergy to mould",
+      "criticality": "low"
+    },
+    {
+      "substance": "Allergy to grass pollen",
+      "criticality": "low"
+    },
+    {
+      "substance": "Latex allergy",
+      "criticality": "low"
+    },
+    {
+      "substance": "House dust mite allergy",
+      "criticality": "low"
+    },
+    {
+      "substance": "Dander (animal) allergy",
+      "criticality": "low"
+    },
+    {
+      "substance": "Allergy to tree pollen",
+      "criticality": "low"
+    }
+  ],
+  "immunizations": [
+    {
+      "vaccine": "Td (adult) preservative free",
+      "date": "2011-08-10T08:59:28+00:00"
+    },
+    {
+      "vaccine": "Influenza, seasonal, injectable, preservative free",
+      "date": "2017-08-16T08:59:28+00:00"
+    },
+    {
+      "vaccine": "Influenza, seasonal, injectable, preservative free",
+      "date": "2011-08-10T08:59:28+00:00"
+    },
+    {
+      "vaccine": "Influenza, seasonal, injectable, preservative free",
+      "date": "2020-08-05T08:59:28+00:00"
+    },
+    {
+      "vaccine": "Influenza, seasonal, injectable, preservative free",
+      "date": "2014-08-13T08:59:28+00:00"
+    },
+    {
+      "vaccine": "Hep A, adult",
+      "date": "2020-08-05T08:59:28+00:00"
+    }
+  ],
+  "documents": [],
+  "fetchedAt": "2026-06-13T21:24:48.055107Z"
+}

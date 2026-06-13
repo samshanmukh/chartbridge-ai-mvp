@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,8 +20,18 @@ import {
   Clock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePatient } from "@/lib/patient-context"
 
 type SourceStatus = "connected" | "needs-review" | "missing"
+
+// Icons can't cross the JSON boundary, so map them back by source id.
+const iconById: Record<string, React.ElementType> = {
+  ehr: FileText,
+  lab: FlaskConical,
+  medications: Pill,
+  wearable: Watch,
+  voice: Mic,
+}
 
 interface DataSource {
   id: string
@@ -132,8 +142,32 @@ function ConfidenceBar({ value, status }: { value: number; status: SourceStatus 
 }
 
 export function DataIntakeDashboard() {
+  const { data, voiceFacts } = usePatient()
   const [sources, setSources] = useState<DataSource[]>(initialSources)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+
+  // Replace mock cards with live FHIR-derived sources as soon as they load.
+  // The voice card lights up once the patient answers intake questions.
+  useEffect(() => {
+    if (!data?.sources) return
+    setSources(
+      data.sources.map((s) => {
+        const base = { ...s, icon: iconById[s.id] ?? FileText } as DataSource
+        if (s.id === "voice" && voiceFacts.length > 0) {
+          return {
+            ...base,
+            status: "connected",
+            records: voiceFacts.length,
+            lastUpdated: "Just now",
+            confidence: 80,
+          }
+        }
+        return base
+      })
+    )
+  }, [data, voiceFacts])
+
+  const patientName = data?.bundle.demographics.name ?? "this patient"
 
   const handleRefresh = (id: string) => {
     setLoadingId(id)
@@ -164,9 +198,24 @@ export function DataIntakeDashboard() {
         {/* Header */}
         <div className="flex flex-col gap-1 mb-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Patient Data Intake</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-foreground">Patient Data Intake</h2>
+              {data && (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs",
+                    data.live
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-amber-50 text-amber-700 border-amber-200"
+                  )}
+                >
+                  {data.live ? "Live FHIR" : "Cached"}
+                </Badge>
+              )}
+            </div>
             <p className="text-muted-foreground mt-1">
-              Connected sources for Maria Gonzalez &middot; {connected}/5 active &middot; {totalRecords} total records
+              Connected sources for {patientName} &middot; {connected}/5 active &middot; {totalRecords} total records
             </p>
           </div>
           <div className="flex items-center gap-2">
