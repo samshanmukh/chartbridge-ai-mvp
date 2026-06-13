@@ -208,54 +208,61 @@ function PromptCard({
     setCallError("")
 
     try {
+      // Step 1 — place the real outbound call via Twilio
       const res = await fetch("/api/grok-phone-call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: num, question: prompt.question }),
       })
+      const data = await res.json() as { callSid?: string; error?: string }
+      if (!res.ok || !data.callSid) throw new Error(data.error ?? "Call failed to initiate")
 
-      if (!res.ok) throw new Error("Call failed to initiate")
-      const reader = res.body?.getReader()
-      const decoder = new TextDecoder()
-      if (!reader) throw new Error("No stream")
+      const callSid = data.callSid
 
-      let buffer = ""
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const event = JSON.parse(line)
-            switch (event.type) {
-              case "call.dialing":      setCallPhase("dialing"); break
-              case "call.connected":    setCallPhase("connected"); break
-              case "call.grok_speaking": setCallPhase("grok-speaking"); break
-              case "call.patient_speaking": setCallPhase("patient-speaking"); break
-              case "call.transcript":
-                setCallTranscript(event.text)
-                setPatientResponse(event.text)
-                break
-              case "call.analysis":
-                setCallAnalysis(event.text)
-                setGrokAnalysis(event.text)
-                break
-              case "call.ended":
-                setCallPhase("call-ended")
-                setSubmitted(true)
-                onResult(prompt.id)
-                break
-              case "call.error":
-                setCallError(event.message)
-                setCallPhase("error")
-                break
-            }
-          } catch { /* ignore malformed lines */ }
-        }
+      // Step 2 — open SSE stream to follow live call progress
+      const es = new EventSource(`/api/grok-phone-call/events?callSid=${callSid}`)
+
+      es.onmessage = (e) => {
+        try {
+          const event = JSON.parse(e.data) as {
+            type: string; status?: string; text?: string; message?: string
+          }
+          switch (event.type) {
+            case "call.dialing":
+            case "call.ringing":
+              setCallPhase("dialing"); break
+            case "call.connected":
+              setCallPhase("connected"); break
+            case "call.grok_speaking":
+              setCallPhase("grok-speaking"); break
+            case "call.patient_speaking":
+              setCallPhase("patient-speaking"); break
+            case "call.transcript":
+              setCallTranscript(event.text ?? "")
+              setPatientResponse(event.text ?? "")
+              setCallPhase("patient-speaking")
+              break
+            case "call.ended":
+              setCallPhase("call-ended")
+              setSubmitted(true)
+              onResult(prompt.id)
+              es.close()
+              break
+            case "call.error":
+              setCallError(event.message ?? "Call error")
+              setCallPhase("error")
+              es.close()
+              break
+          }
+        } catch { /* ignore */ }
       }
+
+      es.onerror = () => {
+        setCallError("Lost connection to call events stream")
+        setCallPhase("error")
+        es.close()
+      }
+
     } catch (err: unknown) {
       setCallError(err instanceof Error ? err.message : "Call failed")
       setCallPhase("error")
