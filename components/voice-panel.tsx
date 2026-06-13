@@ -259,8 +259,12 @@ function PromptCard({
             {cfg.label}
           </Badge>
           {status === "listening" && (
-            <Button size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={stopListening}>
-              <Square className="size-3" />
+            <Button
+              variant="destructive"
+              className="h-9 px-4 text-sm font-semibold gap-2 shadow-sm"
+              onClick={stopListening}
+            >
+              <Square className="size-3.5 fill-current" />
               Done Speaking
             </Button>
           )}
@@ -453,7 +457,7 @@ export function VoicePanel() {
             <div className="grid grid-cols-3 gap-3 mb-6">
               {[
                 { icon: <Volume2 className="size-4 text-primary" />, label: "1. Grok speaks", desc: "Question read aloud by grok-voice-latest" },
-                { icon: <Mic className="size-4 text-red-500" />, label: "2. Patient responds", desc: "Mic opens automatically after question ends" },
+                { icon: <Mic className="size-4 text-red-500" />, label: "2. Patient responds", desc: "Mic stays open until patient presses Done Speaking" },
                 { icon: <Sparkles className="size-4 text-accent" />, label: "3. Grok analyzes", desc: "Clinical facts extracted in real time" },
               ].map(({ icon, label, desc }) => (
                 <div key={label} className="rounded-xl border border-border bg-card p-3 text-center">
