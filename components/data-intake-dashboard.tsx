@@ -276,17 +276,8 @@ export function DataIntakeDashboard() {
             const isBusy = isLoading || isUploading
 
             return (
-              <div key={source.id} className="contents">
-              {/* Hidden file input per source */}
-              <input
-                type="file"
-                accept=".pdf,.csv,.json,.xml,.hl7,.fhir,.txt,.xlsx"
-                className="hidden"
-                ref={(el) => { fileInputRefs.current[source.id] = el }}
-                onChange={(e) => handleFileChange(source.id, e)}
-              />
-
               <Card
+                key={source.id}
                 className={cn(
                   "border transition-all duration-200 hover:shadow-md",
                   source.status === "needs-review" && "border-amber-200/80",
@@ -358,41 +349,10 @@ export function DataIntakeDashboard() {
                         <ConfidenceBar value={source.confidence} status={source.status} />
                       </div>
 
-                      {/* Last uploaded file name */}
-                      {uploadedFiles[source.id] && (
-                        <p className="text-xs text-emerald-600 flex items-center gap-1 truncate">
-                          <CheckCircle className="size-3 shrink-0" />
-                          {uploadedFiles[source.id]}
-                        </p>
-                      )}
-
-                      <div className="flex gap-2 pt-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-xs h-7"
-                          disabled={isBusy}
-                          onClick={() => handleRefresh(source.id)}
-                        >
-                          <RefreshCw className="size-3 mr-1" />
-                          Refresh
-                        </Button>
-                        <Button
-                          variant={source.status === "missing" ? "default" : "outline"}
-                          size="sm"
-                          className="flex-1 text-xs h-7"
-                          disabled={isBusy}
-                          onClick={() => handleUploadClick(source.id)}
-                        >
-                          <Upload className="size-3 mr-1" />
-                          {source.status === "missing" ? "Connect" : "Upload"}
-                        </Button>
-                      </div>
                     </div>
                   )}
                 </CardContent>
               </Card>
-              </div>
             )
           })}
         </div>

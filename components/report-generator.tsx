@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Stethoscope,
   Quote,
+  RefreshCw,
 } from "lucide-react"
 import { usePatient } from "@/lib/patient-context"
 import type { ReportSectionDTO, Citation } from "@/lib/types"
@@ -39,35 +40,30 @@ const clinicianSections: ReportSection[] = [
   {
     title: "Clinical Summary",
     content:
-      "Sam Karri, 30M, with perennial allergic rhinitis, exercise-induced bronchoconstriction, family history of premature CAD, and overweight (BMI 25). Active meds: diphenhydramine 25mg nightly, fluticasone nasal spray, albuterol PRN. Labs from 2023 show borderline lipids and low vitamin D. Wearable shows overnight oxygen desaturations not reflected in the chart.",
+      "Sam Karri, 30M.\nAllergic rhinitis, exercise-induced bronchoconstriction, family history of premature CAD, BMI 25.\nWearable shows overnight oxygen dips not in the chart.",
+  },
+  {
+    title: "Priority Actions",
+    flag: true,
+    content:
+      "Refer for a sleep study — overnight oxygen dips.\nSwitch off nightly diphenhydramine; address sleep.\nOrder overdue screening labs (lipids, A1c, vitamin D).\nFlag latex-free across every care setting.",
   },
   {
     title: "Active Concerns",
-    content:
-      "1. Possible sleep-disordered breathing — overnight SpO2 dips, fragmented sleep (wearable only)\n2. Chronic nightly first-generation antihistamine taken for sleep\n3. Overdue cardiovascular screening given family history\n4. Latex allergy with prior surgery",
     flag: true,
-  },
-  {
-    title: "Medication Reconciliation",
     content:
-      "Active: Diphenhydramine 25 mg nightly (OTC, since 2020)\nActive: Fluticasone nasal spray (since 2022)\nActive: Albuterol HFA PRN (since 2021)\nNo recent refill or review on record for any active medication.",
-    flag: true,
-  },
-  {
-    title: "Notable Labs",
-    content:
-      "Total Cholesterol 212 mg/dL (high)\nLDL 138 mg/dL (high)\nTriglycerides 168 mg/dL (high)\nVitamin D 24 ng/mL (low)\nLast panel ~3 years ago — screening overdue.",
+      "Possible sleep-disordered breathing — wearable only (high)\nChronic nightly first-gen antihistamine (medium)\nOverdue cardiovascular screening (high)\nLatex allergy with prior surgery (high)",
   },
   {
     title: "Care Gaps",
-    content:
-      "1. No sleep study despite wearable + reported snoring\n2. Lipid/metabolic screening overdue\n3. Latex allergy banner not confirmed across all care settings\n4. Chronic antihistamine use never reassessed",
     flag: true,
+    content:
+      "No sleep study despite snoring + wearable signal\nLipid/metabolic screening overdue\nLatex banner not confirmed everywhere",
   },
   {
     title: "Questions to Clarify at Next Visit",
     content:
-      "1. Snoring, gasping, or witnessed apnea overnight?\n2. How often is diphenhydramine relied on for sleep?\n3. Any labs done at outside facilities since 2023?\n4. Is the latex allergy flagged everywhere?",
+      "Snoring, gasping, or witnessed apnea overnight?\nAny labs done elsewhere since 2023?\nIs the latex allergy flagged everywhere?",
   },
 ]
 
@@ -170,6 +166,16 @@ export function ReportGenerator() {
                 )}
                 {generated && (
                   <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={handleGenerate}
+                      disabled={generating}
+                    >
+                      <RefreshCw className={`size-3.5 ${generating ? "animate-spin" : ""}`} />
+                      Regenerate
+                    </Button>
                     <Button variant="outline" size="sm" className="gap-1.5">
                       <Download className="size-3.5" />
                       Export PDF

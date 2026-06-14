@@ -142,11 +142,11 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
         {/* Section header */}
         <div className="flex flex-col gap-1 mb-8">
           <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
-              <Mic className="size-3.5 text-primary-foreground" />
+            <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-600">
+              <Mic className="size-3.5 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-foreground">Patient Voice Intake</h2>
-            <Badge className="bg-primary/10 text-primary border-0 ml-1">
+            <Badge className="bg-emerald-500/10 text-emerald-600 border-0 ml-1">
               <Sparkles className="size-3 mr-1" />
               Grok Voice
             </Badge>
@@ -156,8 +156,8 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
           </p>
         </div>
 
-        <Card className="border border-primary/20 shadow-lg overflow-hidden">
-          <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
+        <Card className="border border-emerald-500/20 shadow-lg overflow-hidden">
+          <CardHeader className="bg-emerald-500/5 border-b border-emerald-500/10 pb-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <CardTitle className="text-base">Voice Interaction Session</CardTitle>

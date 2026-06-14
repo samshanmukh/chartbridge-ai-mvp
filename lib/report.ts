@@ -78,59 +78,41 @@ function buildFallback(
     )[0];
   const crmCite = (id: string) => citations.find((c) => c.id === id);
 
+  const actionFor: Record<string, string> = {
+    "med-stale": "Confirm still taking; renew, adjust, or discontinue.",
+    beers: "Switch to a second-generation antihistamine; address sleep.",
+    screening: "Order overdue screening labs (lipids, A1c, vitamin D).",
+    perioperative: "Flag latex-free across every care setting.",
+    wearable: "Refer for a sleep study — overnight oxygen dips.",
+    reconcile: "Reconcile the conflicting records in the chart.",
+  };
+
   const clinician: ReportSectionDTO[] = [
     {
       title: "Clinical Summary",
-      content: `${d.name}, ${d.age ?? "?"}${sexInitial(d.gender)}. Active problems: ${activeProblems.map((p) => p.text).join(", ") || "none recorded"}. Currently on ${active.length} active medication(s): ${active.map((m) => m.text).join(", ") || "none"}. ChartBridge reconciled ${b.problems.length} conditions, ${b.medications.length} medications, ${b.labs.length} labs, and ${b.allergies.length} allergies from FHIR with ${citations.length} clinic correspondence records, surfacing ${gaps.length} reconciliation gap(s).`,
+      content: `${d.name}, ${d.age ?? "?"}${sexInitial(d.gender)}.\nActive: ${activeProblems.slice(0, 3).map((p) => p.text).join(", ") || "none recorded"}.\n${gaps.length} reconciliation gap(s) across ${b.medications.length} meds, ${b.labs.length} labs, ${b.allergies.length} allergies.`,
+    },
+    {
+      title: "Priority Actions",
+      flag: true,
+      content:
+        gaps.map((g) => actionFor[g.kind] ?? `Address: ${g.title}.`).join("\n") ||
+        "No immediate actions required.",
     },
     {
       title: "Active Concerns",
       flag: gaps.length > 0,
-      content:
-        gaps
-          .map((g, i) => `${i + 1}. ${g.title} (${g.severity})`)
-          .join("\n") || "No active reconciliation concerns detected.",
-    },
-    {
-      title: "Medication Reconciliation",
-      flag: gaps.some((g) => g.kind === "med-stale" || g.kind === "beers"),
-      content: [
-        ...active.map(
-          (m) =>
-            `${m.text} — ACTIVE (authored ${m.authoredOn?.slice(0, 10) ?? "unknown"})`
-        ),
-        crmCite("crm-pharmacy-fax")
-          ? `Pharmacy correspondence on file flags long-term OTC antihistamine use for prescriber review [${crmCite("crm-pharmacy-fax")!.source}].`
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    },
-    {
-      title: "Notable Labs",
-      content: lastLab
-        ? `Most recent result on file: ${lastLab.text} = ${lastLab.value} (${lastLab.effective?.slice(0, 10)}). ${gaps.some((g) => g.kind === "screening") ? "Routine screening labs appear overdue — see Care Gaps." : ""}`
-        : "No laboratory results on file.",
-    },
-    {
-      title: "Wearable Signals (patient-connected)",
-      flag: gaps.some((g) => g.kind === "wearable"),
-      content:
-        b.vitals.map((v) => `${v.text}: ${v.value}`).join("\n") ||
-        "No patient-connected wearable data.",
+      content: gaps.map((g) => `${g.title} (${g.severity})`).join("\n") || "None.",
     },
     {
       title: "Care Gaps",
       flag: high.length > 0,
       content:
-        gaps.map((g, i) => `${i + 1}. ${g.detail}`).join("\n") ||
-        "No care gaps detected.",
+        (high.length ? high : gaps).map((g) => g.title).join("\n") || "None.",
     },
     {
       title: "Questions to Clarify at Next Visit",
-      content:
-        gaps.map((g, i) => `${i + 1}. ${g.question}`).join("\n") ||
-        "No outstanding clarifications.",
+      content: gaps.map((g) => g.question).join("\n") || "None.",
     },
   ];
 
@@ -170,7 +152,19 @@ export async function generateReport(
   citations: Citation[]
 ): Promise<ReportPayload> {
   const fallback = buildFallback(b, gaps, citations);
-  const system = `You are a clinical documentation assistant for ChartBridge AI. You reconcile fragmented patient data into TWO reports: a clinician brief and a plain-English patient summary. GROUND every statement strictly in the data provided — never invent labs, medications, diagnoses, or dates. When a statement is supported by a clinic CRM record, cite it inline like [source name]. Return STRICT JSON of the form {"clinician":[{"title":string,"content":string,"flag":boolean}],"patient":[{"title":string,"content":string,"flag":boolean}]}. Clinician sections, in order: Clinical Summary, Active Concerns, Medication Reconciliation, Notable Labs, Wearable Signals (patient-connected), Care Gaps, Questions to Clarify at Next Visit. The Wearable Signals section must reconcile the patient-connected Apple Health data against the chart and call out anything (e.g. overnight oxygen desaturations) that appears in no clinical source. Patient sections, in order: What We Found, What Changed, What to Ask Your Doctor, Next Steps. Use \\n between list items. Set flag=true on sections that need clinician attention. Patient sections must be warm, clear, and 6th-grade reading level.`;
+  const system = `You are a clinical documentation assistant for ChartBridge AI. Reconcile the fragmented patient data into TWO reports. GROUND every statement strictly in the data provided — never invent labs, medications, diagnoses, or dates. When a clinic CRM record supports a point, cite it inline like [source name].
+
+Return STRICT JSON: {"clinician":[{"title":string,"content":string,"flag":boolean}],"patient":[{"title":string,"content":string,"flag":boolean}]}.
+
+CLINICIAN BRIEF — be SHORT and SCANNABLE. Every line is ONE fact or ONE action, max ~12 words. NO paragraphs, no filler. Use \\n between lines (no bullet characters). Clinician sections, in this exact order:
+- "Clinical Summary": 1-2 short lines — who the patient is and the headline issue.
+- "Priority Actions": 3-5 concrete recommendations, each STARTING WITH AN IMPERATIVE VERB (Order…, Refer…, Reassess…, Confirm…, Document…, Switch…). This is the most important section — make it specific and actionable.
+- "Active Concerns": terse one-line items, highest severity first.
+- "Care Gaps": terse one-line items.
+- "Questions to Clarify at Next Visit": terse one-line questions.
+Set flag=true on Priority Actions, Active Concerns, and Care Gaps.
+
+PATIENT SUMMARY sections, in order: What We Found, What to Ask Your Doctor, Next Steps. Warm, plain English, short lines (6th-grade reading level).`;
   const user = buildContext(b, gaps, citations);
   const { value, source } = await grokJSON<{
     clinician: ReportSectionDTO[];
