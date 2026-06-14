@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -141,6 +141,16 @@ export function ReportGenerator() {
       setGenerated(true)
     }
   }
+
+  // Auto-generate the brief as soon as the patient data is ready — the demo page
+  // is only reached by clicking "Start Patient Review", so the report builds itself.
+  const autoTriggered = useRef(false)
+  useEffect(() => {
+    if (autoTriggered.current || !data) return
+    autoTriggered.current = true
+    handleGenerate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
 
   const clinicianData: ReportSection[] = report?.clinician ?? clinicianSections
 

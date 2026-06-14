@@ -79,9 +79,9 @@ export function CareStory() {
           </p>
         </div>
 
-        <Card className="overflow-hidden shadow-lg border border-primary/20">
-          {/* Card header */}
-          <CardHeader className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white pb-5">
+        <Card className="overflow-hidden shadow-lg border border-primary/20 py-0">
+          {/* Card header — full-bleed banner flush to the card's rounded top edge */}
+          <CardHeader className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white pt-5 pb-5">
             <div className="flex items-start justify-between flex-wrap gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
