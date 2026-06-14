@@ -16,8 +16,15 @@ import {
   Phone,
   PhoneCall,
   PhoneOff,
+  Play,
+  Volume2,
+  Square,
+  AlertCircle,
+  ExternalLink,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useGrokVoice } from "@/hooks/use-grok-voice"
+import { usePatient } from "@/lib/patient-context"
 
 interface IntakeItem {
   id: string
@@ -26,9 +33,10 @@ interface IntakeItem {
   answer: string
 }
 
-// Completed Grok Voice intake — 15 of 15 questions answered (demo).
+// Completed Grok Voice intake — 15 of 15 questions answered (demo data). Q1 is
+// swapped at runtime for the patient's real top reconciliation gap (true context).
 const intake: IntakeItem[] = [
-  { id: "q1", tag: "Medication Gap", question: "Our records show diphenhydramine as an active medication since 2020. Are you still taking it?", answer: "Yes, I take it every night, mostly to help me fall asleep." },
+  { id: "q1", tag: "Top Gap", question: "Our records show diphenhydramine as an active medication since 2020. Are you still taking it?", answer: "Yes, I take it every night, mostly to help me fall asleep." },
   { id: "q2", tag: "Medication Safety", question: "You take diphenhydramine nightly. Do you rely on it to sleep, and do you wake up feeling rested?", answer: "I do rely on it. Honestly, I still wake up tired most mornings." },
   { id: "q3", tag: "Wearable Alert", question: "Your watch shows your blood oxygen dipping low overnight. Do you snore or wake up gasping?", answer: "My girlfriend says I snore really loudly and sometimes seem to stop breathing." },
   { id: "q4", tag: "Care Gap", question: "Your last blood work was about three years ago. Have you had any labs done elsewhere since then?", answer: "No, I haven't been to a doctor in a while." },
@@ -47,22 +55,48 @@ const intake: IntakeItem[] = [
 
 type CallPhase = "idle" | "input" | "dialing" | "connected" | "speaking" | "ended" | "error"
 
-// One combined intake script for the unified call.
-const CALL_SCRIPT =
-  "Hi, this is ChartBridge calling on behalf of your care team. I have a few quick questions to make sure your records are up to date. " +
-  intake.slice(0, 5).map((i) => i.question).join(" ")
+const liveStatusLabel: Record<string, string> = {
+  connecting: "Connecting to Grok Voice…",
+  "speaking-question": "Grok is asking the question…",
+  listening: "Listening — speak now",
+  thinking: "Grok is processing the answer…",
+}
 
 export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) {
+  const { data } = usePatient()
   const [openId, setOpenId] = useState<string | null>(null)
+
+  // Unified call state
   const [callPhase, setCallPhase] = useState<CallPhase>("idle")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [callTranscript, setCallTranscript] = useState("")
   const [callError, setCallError] = useState("")
   const esRef = useRef<EventSource | null>(null)
 
+  // Live Grok Voice for Q1
+  const { status, transcript, error, startSession, stopListening, disconnect } = useGrokVoice()
+  const [liveAnswer, setLiveAnswer] = useState("")
+  const [liveStarted, setLiveStarted] = useState(false)
+
+  // Q1 uses the patient's real top reconciliation gap question (true context).
+  const topGapQ = data?.gaps?.[0]?.question
+  const items: IntakeItem[] = topGapQ
+    ? [{ ...intake[0], question: topGapQ }, ...intake.slice(1)]
+    : intake
+  const liveItem = items[0]
+
   const answered = intake.length
   const total = intake.length
   const pct = Math.round((answered / total) * 100)
+
+  const startLive = useCallback(async () => {
+    setLiveAnswer("")
+    setLiveStarted(true)
+    await startSession(liveItem.question, (final) => {
+      setLiveAnswer(final)
+      disconnect()
+    })
+  }, [liveItem.question, startSession, disconnect])
 
   const handleDial = useCallback(async () => {
     const num = phoneNumber.trim()
@@ -74,31 +108,24 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
       const res = await fetch("/api/grok-phone-call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: num, question: CALL_SCRIPT }),
+        body: JSON.stringify({ phoneNumber: num, question: liveItem.question }),
       })
-      const data = (await res.json()) as { callSid?: string; error?: string }
-      if (!res.ok || !data.callSid) throw new Error(data.error ?? "Call failed to initiate")
-
-      const es = new EventSource(`/api/grok-phone-call/events?callSid=${data.callSid}`)
+      const d = (await res.json()) as { callSid?: string; error?: string }
+      if (!res.ok || !d.callSid) throw new Error(d.error ?? "Call failed to initiate")
+      const es = new EventSource(`/api/grok-phone-call/events?callSid=${d.callSid}`)
       esRef.current = es
       es.onmessage = (e) => {
         try {
           const ev = JSON.parse(e.data) as { type: string; text?: string; message?: string }
           switch (ev.type) {
             case "call.dialing":
-            case "call.ringing":
-              setCallPhase("dialing"); break
-            case "call.connected":
-              setCallPhase("connected"); break
+            case "call.ringing": setCallPhase("dialing"); break
+            case "call.connected": setCallPhase("connected"); break
             case "call.grok_speaking":
-            case "call.patient_speaking":
-              setCallPhase("speaking"); break
-            case "call.transcript":
-              setCallTranscript(ev.text ?? ""); setCallPhase("speaking"); break
-            case "call.ended":
-              setCallPhase("ended"); es.close(); break
-            case "call.error":
-              setCallError(ev.message ?? "Call error"); setCallPhase("error"); es.close(); break
+            case "call.patient_speaking": setCallPhase("speaking"); break
+            case "call.transcript": setCallTranscript(ev.text ?? ""); setCallPhase("speaking"); break
+            case "call.ended": setCallPhase("ended"); es.close(); break
+            case "call.error": setCallError(ev.message ?? "Call error"); setCallPhase("error"); es.close(); break
           }
         } catch { /* ignore */ }
       }
@@ -107,7 +134,7 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
       setCallError(err instanceof Error ? err.message : "Call failed")
       setCallPhase("error")
     }
-  }, [phoneNumber])
+  }, [phoneNumber, liveItem.question])
 
   return (
     <section className="py-16 px-6 bg-muted/40">
@@ -173,7 +200,7 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
                       Call the patient via Grok Voice
                     </p>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Grok will call, walk through the open questions, listen to the answers, and return a clinical analysis.
+                      Grok will call, ask the open question, listen to the answer, and return a clinical analysis.
                     </p>
                     <div className="flex gap-2">
                       <Input
@@ -241,8 +268,9 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
 
             {/* Grouped, collapsible question list */}
             <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
-              {intake.map((item) => {
+              {items.map((item, idx) => {
                 const isOpen = openId === item.id
+                const isLiveQ1 = idx === 0
                 return (
                   <div key={item.id}>
                     <button
@@ -255,29 +283,112 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
                           isOpen ? "rotate-0" : "-rotate-90"
                         )}
                       />
-                      <Badge variant="outline" className="text-[10px] border-primary/20 text-primary bg-primary/5 shrink-0">
-                        {item.tag}
+                      <Badge variant="outline" className={cn(
+                        "text-[10px] shrink-0",
+                        isLiveQ1 ? "border-primary/40 text-primary bg-primary/10" : "border-primary/20 text-primary bg-primary/5"
+                      )}>
+                        {isLiveQ1 ? "Live · Top Gap" : item.tag}
                       </Badge>
                       <span className="flex-1 min-w-0 truncate text-sm text-foreground">{item.question}</span>
-                      <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600 bg-emerald-500/10 shrink-0 gap-1">
-                        <CheckCircle className="size-3" />
-                        Answered
-                      </Badge>
+                      {isLiveQ1 ? (
+                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary bg-primary/10 shrink-0 gap-1">
+                          <Play className="size-3" />
+                          Demo
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600 bg-emerald-500/10 shrink-0 gap-1">
+                          <CheckCircle className="size-3" />
+                          Answered
+                        </Badge>
+                      )}
                     </button>
 
                     {isOpen && (
-                      <div className="px-4 pb-4 pl-11 flex flex-col gap-2">
+                      <div className="px-4 pb-4 pl-11 flex flex-col gap-3">
+                        {/* Question */}
                         <div className="flex gap-2">
                           <div className="shrink-0 mt-0.5 flex size-5 items-center justify-center rounded-full bg-primary/10">
                             <Sparkles className="size-3 text-primary" />
                           </div>
                           <p className="text-sm text-muted-foreground leading-relaxed">{item.question}</p>
                         </div>
+
+                        {/* Q1 — live Grok Voice demo */}
+                        {isLiveQ1 && (
+                          <div className="rounded-lg border border-primary/30 bg-primary/[0.04] p-3 flex flex-col gap-2">
+                            <p className="text-xs text-muted-foreground">
+                              This question is generated from the patient&apos;s top reconciliation gap. Play it aloud and record the answer live.
+                            </p>
+
+                            {!liveStarted && (
+                              <Button size="sm" className="gap-1.5 w-fit" onClick={startLive}>
+                                <Play className="size-3.5" />
+                                Play question &amp; record answer
+                              </Button>
+                            )}
+
+                            {liveStarted && status !== "idle" && status !== "error" && (
+                              <div className="flex items-center justify-between gap-2">
+                                <Badge variant="outline" className={cn(
+                                  "text-xs gap-1.5",
+                                  status === "listening"
+                                    ? "border-red-500/30 text-red-600 bg-red-500/10"
+                                    : "border-primary/30 text-primary bg-primary/10"
+                                )}>
+                                  {status === "listening" ? (
+                                    <span className="flex gap-0.5 items-end">
+                                      {[0, 1, 2, 3].map((i) => (
+                                        <span key={i} className="inline-block w-0.5 rounded-full bg-red-500 animate-bounce"
+                                          style={{ height: `${6 + i * 3}px`, animationDelay: `${i * 80}ms` }} />
+                                      ))}
+                                    </span>
+                                  ) : status === "speaking-question" ? (
+                                    <Volume2 className="size-3" />
+                                  ) : (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  )}
+                                  {liveStatusLabel[status] ?? status}
+                                </Badge>
+                                {status === "listening" && (
+                                  <Button size="sm" variant="destructive" className="h-8 gap-1.5" onClick={stopListening}>
+                                    <Square className="size-3 fill-current" />
+                                    Done Speaking
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+
+                            {(status === "listening" || status === "thinking") && transcript && (
+                              <p className="text-sm text-foreground italic leading-relaxed">
+                                &ldquo;{transcript}&rdquo;
+                                {status === "listening" && <span className="inline-block w-0.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" />}
+                              </p>
+                            )}
+
+                            {status === "error" && error && (
+                              <div className="flex flex-col gap-1.5">
+                                <p className="text-xs text-destructive flex items-start gap-1.5">
+                                  <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+                                  {error}
+                                </p>
+                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 w-fit"
+                                  onClick={() => window.open(window.location.href, "_blank")}>
+                                  <ExternalLink className="size-3" />
+                                  Open in a direct tab (mic needs a real tab)
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Answer — live answer for Q1 if captured, else the recorded answer */}
                         <div className="flex gap-2">
                           <div className="shrink-0 mt-0.5 flex size-5 items-center justify-center rounded-full bg-accent/10">
                             <Mic className="size-3 text-accent" />
                           </div>
-                          <p className="text-sm text-foreground italic leading-relaxed">&ldquo;{item.answer}&rdquo;</p>
+                          <p className="text-sm text-foreground italic leading-relaxed">
+                            &ldquo;{isLiveQ1 && liveAnswer ? liveAnswer : item.answer}&rdquo;
+                          </p>
                         </div>
                       </div>
                     )}

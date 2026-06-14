@@ -347,12 +347,21 @@ The question to ask is: "${question}"`,
           break
         }
 
-        // Grok finished speaking — NOW open the mic so patient can respond
+        // Grok finished STREAMING audio — but chunks are scheduled ahead on the
+        // AudioContext timeline, so the voice is still playing through the
+        // speakers until nextPlayTime. Wait for that tail to finish before
+        // opening the mic, otherwise the mic records Grok's own speech.
         case "response.output_audio.done": {
-          const micOk = await startMic()
-          if (micOk) {
-            setStatus("listening")
-          }
+          const ctx = audioCtxRef.current
+          const remainingMs = ctx
+            ? Math.max(0, (nextPlayTimeRef.current - ctx.currentTime) * 1000)
+            : 0
+          setTimeout(async () => {
+            if (intentionalDisconnectRef.current) return
+            if (wsRef.current?.readyState !== WebSocket.OPEN) return
+            const micOk = await startMic()
+            if (micOk) setStatus("listening")
+          }, remainingMs + 300) // guard buffer after the audio tail ends
           break
         }
 
