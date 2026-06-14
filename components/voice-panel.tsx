@@ -21,6 +21,7 @@ import {
   Square,
   AlertCircle,
   ExternalLink,
+  HelpCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useGrokVoice } from "@/hooks/use-grok-voice"
@@ -32,6 +33,7 @@ interface IntakeItem {
   question: string
   answer: string
   note: string // Grok's one-line clinical observation about the answer
+  unknown?: boolean // patient answered "I don't know" — marked Unknown
 }
 
 // Completed Grok Voice intake — 15 of 15 questions answered (demo data). Q1 is
@@ -41,9 +43,9 @@ const intake: IntakeItem[] = [
   { id: "q1", tag: "Top Gap", question: "Our records show diphenhydramine as an active medication since 2020. Are you still taking it?", answer: "Yes, I take it every night, mostly to help me fall asleep.", note: "Confirms active nightly use for sleep — flag for medication review and anticholinergic burden." },
   { id: "q2", tag: "Medication Safety", question: "You take diphenhydramine nightly. Do you rely on it to sleep, and do you wake up feeling rested?", answer: "I do rely on it. Honestly, I still wake up tired most mornings.", note: "Self-medicating for sleep but unrefreshed — the antihistamine may be masking an underlying sleep problem." },
   { id: "q3", tag: "Wearable Alert", question: "Your watch shows your blood oxygen dipping low overnight. Do you snore or wake up gasping?", answer: "My girlfriend says I snore really loudly and sometimes seem to stop breathing.", note: "Witnessed snoring + apnea corroborates the overnight SpO2 dips — refer for a sleep study." },
-  { id: "q4", tag: "Care Gap", question: "Your last blood work was about three years ago. Have you had any labs done elsewhere since then?", answer: "No, I haven't been to a doctor in a while.", note: "No recent labs — screening overdue; order a baseline metabolic and lipid panel." },
+  { id: "q4", tag: "Care Gap", question: "Your last blood work was about three years ago. Have you had any labs done elsewhere since then?", answer: "I'm honestly not sure — I don't really keep track of that.", note: "Unknown — verify outside records before assuming no labs exist.", unknown: true },
   { id: "q5", tag: "Family History", question: "Do you have a family history of heart disease?", answer: "Yes, my dad had a heart attack at 52.", note: "Premature CAD (father MI at 52) — justifies earlier lipid screening despite age." },
-  { id: "q6", tag: "Safety Flag", question: "You have a latex allergy on file and a past surgery. Has every clinic been told about the latex allergy?", answer: "I always remind them, but I'm not sure it's in every system.", note: "Latex allergy may not propagate across settings — confirm the latex-free banner everywhere." },
+  { id: "q6", tag: "Safety Flag", question: "You have a latex allergy on file and a past surgery. Has every clinic been told about the latex allergy?", answer: "I don't know, honestly — I'm not sure which clinics have it.", note: "Unknown — confirm the latex-free banner is set in every system.", unknown: true },
   { id: "q7", tag: "Allergy", question: "Are your allergy symptoms year-round or seasonal?", answer: "Year-round, but they get worse in the spring.", note: "Perennial with seasonal flare — consistent with the rhinitis on the problem list." },
   { id: "q8", tag: "Respiratory", question: "Do you ever get short of breath or wheeze during exercise?", answer: "Sometimes when I run hard, my chest gets tight.", note: "Exertional chest tightness — consistent with exercise-induced bronchoconstriction." },
   { id: "q9", tag: "Lifestyle", question: "How many days a week are you physically active?", answer: "About five days a week — running, swimming, and lifting.", note: "Highly active; cardio fitness above average — a positive prognostic sign." },
@@ -108,9 +110,10 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
     : intake
   const liveItem = items[0]
 
-  const answered = intake.length
   const total = intake.length
-  const pct = Math.round((answered / total) * 100)
+  const unknownCount = intake.filter((i) => i.unknown).length
+  const answered = total - unknownCount
+  const pct = 100 // all questions asked and a response captured for each
 
   const startLive = useCallback(async () => {
     setLiveAnswer("")
@@ -221,7 +224,7 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
                   Intake complete
                 </span>
                 <span className="text-sm font-semibold text-emerald-600">
-                  {answered} of {total} answered · {pct}%
+                  {answered} answered · {unknownCount} unknown · {pct}% complete
                 </span>
               </div>
               <Progress value={pct} className="h-2" />
@@ -339,6 +342,11 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
                         <Badge variant="outline" className="text-[10px] border-primary/30 text-primary bg-primary/10 shrink-0 gap-1">
                           <Play className="size-3" />
                           Demo
+                        </Badge>
+                      ) : item.unknown ? (
+                        <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600 bg-amber-500/10 shrink-0 gap-1">
+                          <HelpCircle className="size-3" />
+                          Unknown
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600 bg-emerald-500/10 shrink-0 gap-1">
@@ -465,7 +473,7 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
               <div className="flex items-center gap-2">
                 <CheckCircle className="size-4 text-emerald-600" />
                 <span className="text-sm font-medium text-emerald-700">
-                  {answered} patient-reported answers captured via Grok Voice
+                  {total} patient responses captured via Grok Voice
                 </span>
               </div>
               <Button

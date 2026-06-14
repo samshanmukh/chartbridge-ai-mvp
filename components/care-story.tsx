@@ -81,7 +81,7 @@ export function CareStory() {
 
         <Card className="overflow-hidden shadow-lg border border-primary/20">
           {/* Card header */}
-          <CardHeader className="bg-primary text-primary-foreground pb-5">
+          <CardHeader className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white pb-5">
             <div className="flex items-start justify-between flex-wrap gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -111,7 +111,7 @@ export function CareStory() {
               </Badge>
               <Badge className="bg-white/20 text-white border-0">
                 <Mic className="size-3 mr-1" />
-                {voiceFacts.length} Voice Gaps Resolved
+                {data.gaps.length} Voice Gaps Resolved
               </Badge>
               <Badge className="bg-amber-400/30 text-white border-0">
                 <AlertTriangle className="size-3 mr-1" />
