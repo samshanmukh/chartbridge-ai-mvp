@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -115,6 +115,14 @@ const severityConfig: Record<Severity, { label: string; cardClass: string; badge
 export function ReconciliationInsights() {
   const { data } = usePatient()
   const [resolved, setResolved] = useState<Set<string>>(new Set())
+  const [openAction, setOpenAction] = useState<Set<string>>(new Set())
+
+  const toggleAction = (id: string) =>
+    setOpenAction((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
 
   const liveInsights: Insight[] = data?.insights
     ? data.insights.map((i) => ({
@@ -162,6 +170,8 @@ export function ReconciliationInsights() {
             const InsightIcon = insight.icon
             const isResolved = resolved.has(insight.id)
 
+            const actionOpen = openAction.has(insight.id)
+
             return (
               <Card
                 key={insight.id}
@@ -172,67 +182,75 @@ export function ReconciliationInsights() {
                     : cfg.cardClass
                 )}
               >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "flex size-9 items-center justify-center rounded-xl shrink-0 mt-0.5",
-                          isResolved ? "bg-muted" : "bg-background border"
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "flex size-8 items-center justify-center rounded-lg shrink-0",
+                        isResolved ? "bg-muted" : "bg-background border"
+                      )}
+                    >
+                      <InsightIcon className={cn("size-4", isResolved ? "text-muted-foreground" : cfg.iconClass)} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <CardTitle className="text-sm font-semibold leading-snug">{insight.title}</CardTitle>
+                        {isResolved ? (
+                          <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                            <CheckCircle className="size-3 mr-1" />
+                            Resolved
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className={cn("text-xs", cfg.badgeClass)}>
+                            {cfg.label}
+                          </Badge>
                         )}
-                      >
-                        <InsightIcon className={cn("size-4", isResolved ? "text-muted-foreground" : cfg.iconClass)} />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <CardTitle className="text-sm font-semibold">{insight.title}</CardTitle>
-                          {isResolved ? (
-                            <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
-                              <CheckCircle className="size-3 mr-1" />
-                              Resolved
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className={cn("text-xs", cfg.badgeClass)}>
-                              {cfg.label} Severity
-                            </Badge>
+
+                      {!isResolved && (
+                        <>
+                          <p className="text-sm leading-relaxed text-muted-foreground mt-1.5">
+                            {insight.explanation}
+                          </p>
+
+                          {/* Collapsible suggested action */}
+                          <button
+                            onClick={() => toggleAction(insight.id)}
+                            className="mt-3 flex items-center gap-1 text-xs font-semibold text-foreground hover:text-primary transition-colors"
+                          >
+                            <ChevronRight
+                              className={cn(
+                                "size-3.5 text-primary transition-transform duration-200",
+                                actionOpen && "rotate-90"
+                              )}
+                            />
+                            Suggested Next Action
+                          </button>
+                          {actionOpen && (
+                            <p className="mt-1.5 rounded-lg bg-muted/50 border border-border/50 p-3 text-xs text-muted-foreground leading-relaxed">
+                              {insight.suggestedAction}
+                            </p>
                           )}
-                        </div>
-                      </div>
+
+                          <div className="flex gap-2 mt-3">
+                            <Button size="sm" variant="outline" className="text-xs h-7">
+                              Add to Report
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => handleResolve(insight.id)}
+                            >
+                              <CheckCircle className="size-3 mr-1" />
+                              Mark Resolved
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                </CardHeader>
-
-                {!isResolved && (
-                  <CardContent className="pt-0">
-                    <div className="pl-12">
-                      <CardDescription className="text-sm leading-relaxed text-muted-foreground mb-3">
-                        {insight.explanation}
-                      </CardDescription>
-
-                      <div className="rounded-lg bg-background border border-border/60 p-3 mb-4">
-                        <p className="text-xs font-semibold text-foreground mb-1 flex items-center gap-1">
-                          <ChevronRight className="size-3 text-primary" />
-                          Suggested Next Action
-                        </p>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{insight.suggestedAction}</p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="text-xs h-7">
-                          Add to Report
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="text-xs h-7"
-                          onClick={() => handleResolve(insight.id)}
-                        >
-                          <CheckCircle className="size-3 mr-1" />
-                          Mark Resolved
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                )}
+                </div>
               </Card>
             )
           })}

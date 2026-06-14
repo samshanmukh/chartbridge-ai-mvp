@@ -2,14 +2,13 @@
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Activity, Mic, ChevronRight, FileText } from "lucide-react"
+import { Activity, Mic, ChevronRight } from "lucide-react"
 
 interface HeroSectionProps {
-  onStartReview: () => void
-  onViewDemo: () => void
+  onStart: () => void
 }
 
-export function HeroSection({ onStartReview, onViewDemo }: HeroSectionProps) {
+export function HeroSection({ onStart }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden bg-background">
       {/* Subtle grid background */}
@@ -32,18 +31,9 @@ export function HeroSection({ onStartReview, onViewDemo }: HeroSectionProps) {
               ChartBridge AI
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary" className="hidden sm:flex gap-1 py-1">
-              <span className="size-1.5 rounded-full bg-accent inline-block" />
-              Synthetic Data Only
-            </Badge>
-            <Button variant="outline" size="sm" onClick={onViewDemo}>
-              View Demo
-            </Button>
-            <Button size="sm" onClick={onStartReview}>
-              Start Review
-            </Button>
-          </div>
+          <Button size="sm" onClick={onStart}>
+            Start Review
+          </Button>
         </nav>
 
         {/* Hero content */}
@@ -58,9 +48,6 @@ export function HeroSection({ onStartReview, onViewDemo }: HeroSectionProps) {
               FHIR-ready
             </Badge>
             <Badge variant="secondary" className="font-medium">
-              Synthetic Data Only
-            </Badge>
-            <Badge variant="secondary" className="font-medium">
               Patient Agency
             </Badge>
           </div>
@@ -72,17 +59,13 @@ export function HeroSection({ onStartReview, onViewDemo }: HeroSectionProps) {
 
           <p className="mt-6 text-lg leading-relaxed text-muted-foreground text-balance">
             ChartBridge AI uses Grok Voice to reconcile fragmented patient data into clinician-ready
-            and patient-friendly care reports. One source of truth — for every provider and every patient.
+            and patient-friendly care reports. One source of truth for every provider and every patient.
           </p>
 
-          <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Button size="lg" className="gap-2 px-8" onClick={onStartReview}>
+          <div className="mt-10 flex justify-center">
+            <Button size="lg" className="gap-2 px-8" onClick={onStart}>
               Start Patient Review
               <ChevronRight className="size-4" />
-            </Button>
-            <Button variant="outline" size="lg" className="gap-2 px-8" onClick={onViewDemo}>
-              <FileText className="size-4" />
-              View Demo Report
             </Button>
           </div>
 
@@ -91,26 +74,6 @@ export function HeroSection({ onStartReview, onViewDemo }: HeroSectionProps) {
             &ldquo;Reconcile EHR, labs, medications, wearables, and patient voice into one unified timeline.&rdquo;
           </p>
         </div>
-
-        {/* Stats row */}
-        <div className="mt-16 grid grid-cols-2 gap-6 sm:grid-cols-4 max-w-2xl mx-auto">
-          {[
-            { label: "Data Sources", value: "5" },
-            { label: "Voice Gaps Resolved", value: "12" },
-            { label: "Timeline Events", value: "47" },
-            { label: "Care Gaps Found", value: "3" },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <div className="text-2xl font-bold text-primary">{stat.value}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Disclaimer */}
-        <p className="mt-12 text-center text-xs text-muted-foreground max-w-xl mx-auto">
-          This tool supports data organization and care navigation. It does not diagnose, treat, or replace clinical judgment.
-        </p>
       </div>
     </section>
   )

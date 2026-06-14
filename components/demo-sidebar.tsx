@@ -15,7 +15,6 @@ import {
   ChevronUp,
   Activity,
   AlertTriangle,
-  Info,
   Watch,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -39,7 +38,7 @@ export function DemoSidebar({ onSectionNav }: DemoSidebarProps) {
   const { data } = usePatient()
 
   const demo = data?.bundle.demographics
-  const name = demo?.name ?? "Maria Gonzalez"
+  const name = demo?.name ?? "Sam Karri"
   const initials =
     name
       .split(" ")
@@ -49,18 +48,18 @@ export function DemoSidebar({ onSectionNav }: DemoSidebarProps) {
       .toUpperCase() || "PT"
   const ageSex = demo
     ? `Age ${demo.age ?? "?"} · ${demo.gender ? demo.gender[0].toUpperCase() + demo.gender.slice(1) : "Unknown"}`
-    : "Age 52 · Female"
+    : "Age 30 · Male"
   const topGap = [...(data?.gaps ?? [])].sort(
     (a, b) => sevRank[a.severity] - sevRank[b.severity]
   )[0]
   const connectedCount = data?.sources.filter((s) => s.status === "connected").length ?? 4
 
   const sections = [
+    { id: "report", label: "Reports", icon: FileText, count: "Ready", highlight: true },
     { id: "intake", label: "Data Intake", icon: Activity, count: data ? `${connectedCount}/${data.sources.length}` : "4/5" },
-    { id: "voice", label: "Voice Panel", icon: Mic, count: `${data?.gaps.length ?? 3} gaps`, highlight: true },
+    { id: "voice", label: "Voice Panel", icon: Mic, count: `${data?.gaps.length ?? 3} gaps` },
     { id: "timeline", label: "Timeline", icon: FileText, count: `${data?.timeline.length ?? 7} events` },
     { id: "insights", label: "Insights", icon: AlertTriangle, count: `${data?.gaps.length ?? 5} issues` },
-    { id: "report", label: "Reports", icon: FileText, count: "Ready" },
   ]
 
   const dataSources = data
@@ -141,32 +140,6 @@ export function DemoSidebar({ onSectionNav }: DemoSidebarProps) {
               </div>
             </div>
 
-            {/* Data sources */}
-            <div className="p-4 border-b">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Data Sources</p>
-              <div className="flex flex-col gap-1.5">
-                {dataSources.map((src) => {
-                  const SrcIcon = src.icon
-                  return (
-                    <div key={src.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <SrcIcon className="size-3.5 text-muted-foreground" />
-                        <span className="text-xs text-foreground">{src.label}</span>
-                      </div>
-                      <div
-                        className={cn(
-                          "size-2 rounded-full",
-                          src.status === "connected" && "bg-emerald-500",
-                          src.status === "review" && "bg-amber-400",
-                          src.status === "missing" && "bg-red-400"
-                        )}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
             {/* Navigation */}
             <div className="p-4 border-b">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sections</p>
@@ -198,13 +171,29 @@ export function DemoSidebar({ onSectionNav }: DemoSidebarProps) {
               </div>
             </div>
 
-            {/* Info */}
+            {/* Data sources */}
             <div className="p-4">
-              <div className="rounded-lg bg-muted/50 p-3 flex items-start gap-2">
-                <Info className="size-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                <p className="text-xs text-muted-foreground leading-snug">
-                  All data is synthetic. No real PHI is used in this demo.
-                </p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Data Sources</p>
+              <div className="flex flex-col gap-1.5">
+                {dataSources.map((src) => {
+                  const SrcIcon = src.icon
+                  return (
+                    <div key={src.label} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <SrcIcon className="size-3.5 text-muted-foreground" />
+                        <span className="text-xs text-foreground">{src.label}</span>
+                      </div>
+                      <div
+                        className={cn(
+                          "size-2 rounded-full",
+                          src.status === "connected" && "bg-emerald-500",
+                          src.status === "review" && "bg-amber-400",
+                          src.status === "missing" && "bg-red-400"
+                        )}
+                      />
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </CardContent>

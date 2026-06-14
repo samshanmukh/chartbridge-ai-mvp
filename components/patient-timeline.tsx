@@ -118,14 +118,50 @@ function ConfidenceDot({ value }: { value: number }) {
   )
 }
 
+// Patient Voice Intake events — surfaced on top of the timeline (Grok Voice).
+const voiceDemoEvents: TimelineEvent[] = [
+  {
+    id: "v-intake",
+    date: "Jun 13, 2026",
+    title: "Patient voice intake completed — 15 of 15 questions answered",
+    detail:
+      "Full Grok Voice intake session completed. All 15 reconciliation questions answered by the patient and added to the record.",
+    source: "voice",
+    confidence: 96,
+    needsReview: false,
+  },
+  {
+    id: "v-sleep",
+    date: "Jun 13, 2026",
+    title: "Patient voice — confirms loud snoring and morning fatigue",
+    detail:
+      'Via Grok Voice: "My girlfriend says I snore loudly and seem to stop breathing sometimes. I wake up exhausted." Corroborates the wearable overnight oxygen signal.',
+    source: "voice",
+    confidence: 93,
+    needsReview: true,
+    flagReason: "Patient-reported sleep symptoms support possible sleep-disordered breathing — not in the EHR",
+  },
+  {
+    id: "v-antihistamine",
+    date: "Jun 13, 2026",
+    title: "Patient voice — takes diphenhydramine nightly to sleep",
+    detail:
+      'Via Grok Voice: "I take the allergy pill every night just to help me fall asleep." Confirms chronic first-generation antihistamine use for sleep.',
+    source: "voice",
+    confidence: 90,
+    needsReview: true,
+    flagReason: "Chronic nightly antihistamine use for sleep — medication safety review",
+  },
+]
+
 export function PatientTimeline() {
   const { data } = usePatient()
-  const liveEvents: TimelineEvent[] = data?.timeline ?? events
+  const liveEvents: TimelineEvent[] = [...voiceDemoEvents, ...(data?.timeline ?? events)]
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const headerLabel = data
     ? `Patient: ${data.bundle.demographics.name} · ${data.bundle.demographics.age ?? "?"}${data.bundle.demographics.gender ? data.bundle.demographics.gender[0].toUpperCase() : ""} · ${liveEvents.length} events reconciled`
-    : "Patient: Maria Gonzalez · Concern: Diabetes Follow-up · Jun 13, 2026"
+    : "Patient: Sam Karri · 30M · Records reconciliation · Jun 13, 2026"
 
   return (
     <section className="py-16 px-6 bg-background">
@@ -178,8 +214,8 @@ export function PatientTimeline() {
                     className={cn(
                       "relative pl-16 pr-6 py-4 transition-colors duration-150 cursor-pointer",
                       !isLast && "border-b border-border/50",
-                      event.needsReview ? "hover:bg-amber-50/50" : "hover:bg-muted/30",
-                      isExpanded && (event.needsReview ? "bg-amber-50/40" : "bg-muted/20")
+                      event.needsReview ? "hover:bg-amber-500/[0.07]" : "hover:bg-foreground/[0.04]",
+                      isExpanded && (event.needsReview ? "bg-amber-500/[0.06]" : "bg-foreground/[0.03]")
                     )}
                     onClick={() => setExpandedId(isExpanded ? null : event.id)}
                   >

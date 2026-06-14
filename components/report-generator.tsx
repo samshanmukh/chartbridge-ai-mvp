@@ -100,12 +100,18 @@ const patientSections: ReportSection[] = [
 
 function ReportSection({ section }: { section: ReportSection }) {
   return (
-    <div className={`rounded-xl p-4 border ${section.flag ? "border-amber-200/80 bg-amber-50/50" : "border-border bg-muted/20"}`}>
+    <div
+      className={`rounded-xl p-4 border ${
+        section.flag
+          ? "border-amber-500/30 bg-amber-500/[0.07]"
+          : "border-border bg-muted/20"
+      }`}
+    >
       <div className="flex items-start gap-2 mb-2">
         {section.flag && <AlertTriangle className="size-4 text-amber-500 mt-0.5 shrink-0" />}
         <h4 className="text-sm font-semibold text-foreground">{section.title}</h4>
       </div>
-      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{section.content}</p>
+      <p className="text-sm text-foreground/70 leading-relaxed whitespace-pre-line">{section.content}</p>
     </div>
   )
 }
@@ -137,7 +143,7 @@ export function ReportGenerator() {
   })
   const [report, setReport] = useState<ReportData | null>(null)
 
-  const patientName = data?.bundle.demographics.name ?? "Maria Gonzalez"
+  const patientName = data?.bundle.demographics.name ?? "Sam Karri"
 
   // One POST /api/report builds both reports (FHIR + gaps + CRM RAG + Grok).
   // The per-type flags just control which tab reveals it.

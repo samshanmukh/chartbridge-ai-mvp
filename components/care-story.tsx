@@ -237,7 +237,6 @@ export function CareStory() {
               <div className="rounded-xl bg-muted/40 border border-border p-4 text-center">
                 <p className="text-xs text-muted-foreground">
                   This tool supports data organization and care navigation. It does not diagnose, treat, or replace clinical judgment.
-                  All data in this demo is synthetic and does not represent real patients.
                 </p>
               </div>
             </div>
