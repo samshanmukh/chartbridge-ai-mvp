@@ -90,10 +90,10 @@ const initialSources: DataSource[] = [
     icon: Mic,
     name: "Patient Voice Intake",
     description: "Grok Voice-collected patient history",
-    status: "missing",
-    records: 0,
-    lastUpdated: "Never",
-    confidence: 0,
+    status: "connected",
+    records: 15,
+    lastUpdated: "Just now",
+    confidence: 92,
   },
 ]
 
@@ -227,6 +227,7 @@ export function DataIntakeDashboard() {
 
   const connected = sources.filter((s) => s.status === "connected").length
   const totalRecords = sources.reduce((sum, s) => sum + s.records, 0)
+  const completeness = sources.length ? Math.round((connected / sources.length) * 100) : 0
 
   return (
     <section className="py-16 px-6 bg-background">
@@ -364,12 +365,12 @@ export function DataIntakeDashboard() {
               <div>
                 <p className="text-sm font-semibold text-foreground">Overall Data Completeness</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Based on 4 of 5 sources connected
+                  Based on {connected} of {sources.length} sources connected
                 </p>
               </div>
               <div className="flex items-center gap-3 sm:w-64">
-                <Progress value={76} className="flex-1 h-2" />
-                <span className="text-sm font-bold text-primary w-10 text-right">76%</span>
+                <Progress value={completeness} className="flex-1 h-2" />
+                <span className="text-sm font-bold text-primary w-10 text-right">{completeness}%</span>
               </div>
             </div>
           </CardContent>

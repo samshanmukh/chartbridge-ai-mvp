@@ -79,18 +79,23 @@ function buildFallback(
   const crmCite = (id: string) => citations.find((c) => c.id === id);
 
   const actionFor: Record<string, string> = {
-    "med-stale": "Confirm still taking; renew, adjust, or discontinue.",
-    beers: "Switch to a second-generation antihistamine; address sleep.",
-    screening: "Order overdue screening labs (lipids, A1c, vitamin D).",
-    perioperative: "Flag latex-free across every care setting.",
-    wearable: "Refer for a sleep study — overnight oxygen dips.",
-    reconcile: "Reconcile the conflicting records in the chart.",
+    "med-stale": "Confirm the patient is still taking this medication and document current status; renew, adjust, or discontinue as appropriate.",
+    beers: "Switch the nightly first-generation antihistamine to a second-generation agent and address the underlying sleep complaint directly.",
+    screening: "Order age-appropriate screening labs (lipid panel, metabolic panel, A1c) and reconcile any results obtained at outside facilities.",
+    perioperative: "Confirm the latex-free allergy banner propagates to every clinic and hospital before any future procedure.",
+    wearable: "Refer for a sleep study — overnight oxygen desaturations with fragmented sleep suggest undiagnosed sleep-disordered breathing.",
+    reconcile: "Reconcile the conflicting records and update the structured chart to match.",
   };
+
+  const recentLabs = [...b.labs]
+    .filter((l) => l.effective)
+    .sort((a, c) => new Date(c.effective!).getTime() - new Date(a.effective!).getTime())
+    .slice(0, 6);
 
   const clinician: ReportSectionDTO[] = [
     {
       title: "Clinical Summary",
-      content: `${d.name}, ${d.age ?? "?"}${sexInitial(d.gender)}.\nActive: ${activeProblems.slice(0, 3).map((p) => p.text).join(", ") || "none recorded"}.\n${gaps.length} reconciliation gap(s) across ${b.medications.length} meds, ${b.labs.length} labs, ${b.allergies.length} allergies.`,
+      content: `${d.name}, ${d.age ?? "?"}${sexInitial(d.gender)}. Active problems: ${activeProblems.map((p) => p.text).join(", ") || "none recorded"}. Currently on ${active.length} active medication(s): ${active.map((m) => m.text).join(", ") || "none"}. ChartBridge reconciled ${b.problems.length} conditions, ${b.medications.length} medications, ${b.labs.length} labs, ${b.allergies.length} allergies, and ${b.vitals.length} wearable signals with ${citations.length} clinic correspondence records — surfacing ${gaps.length} reconciliation gap(s), ${high.length} high-priority.`,
     },
     {
       title: "Priority Actions",
@@ -102,17 +107,46 @@ function buildFallback(
     {
       title: "Active Concerns",
       flag: gaps.length > 0,
-      content: gaps.map((g) => `${g.title} (${g.severity})`).join("\n") || "None.",
+      content:
+        gaps.map((g, i) => `${i + 1}. ${g.title} (${g.severity}) — ${g.detail}`).join("\n") ||
+        "No active reconciliation concerns detected.",
+    },
+    {
+      title: "Medication Reconciliation",
+      flag: gaps.some((g) => g.kind === "med-stale" || g.kind === "beers"),
+      content: [
+        ...active.map((m) => `${m.text} — ACTIVE since ${m.authoredOn?.slice(0, 10) ?? "unknown"}; no recent refill or review on record.`),
+        crmCite("crm-pharmacy-fax")
+          ? `Pharmacy correspondence flags long-term OTC antihistamine use for prescriber review [${crmCite("crm-pharmacy-fax")!.source}].`
+          : "",
+      ].filter(Boolean).join("\n"),
+    },
+    {
+      title: "Notable Labs",
+      content: recentLabs.length
+        ? recentLabs.map((l) => `${l.text}: ${l.value ?? "?"}${l.flag && l.flag !== "normal" ? ` [${l.flag}]` : ""} (${l.effective?.slice(0, 10)})`).join("\n") +
+          (gaps.some((g) => g.kind === "screening") ? "\nMost recent panel is several years old — routine screening appears overdue." : "")
+        : "No laboratory results on file.",
+    },
+    {
+      title: "Wearable Signals",
+      flag: gaps.some((g) => g.kind === "wearable"),
+      content:
+        b.vitals.map((v) => `${v.text}: ${v.value}`).join("\n") ||
+        "No patient-connected wearable data.",
     },
     {
       title: "Care Gaps",
       flag: high.length > 0,
       content:
-        (high.length ? high : gaps).map((g) => g.title).join("\n") || "None.",
+        gaps.map((g, i) => `${i + 1}. ${g.detail}`).join("\n") ||
+        "No care gaps detected.",
     },
     {
       title: "Questions to Clarify at Next Visit",
-      content: gaps.map((g) => g.question).join("\n") || "None.",
+      content:
+        gaps.map((g, i) => `${i + 1}. ${g.question}`).join("\n") ||
+        "No outstanding clarifications.",
     },
   ];
 
@@ -156,13 +190,16 @@ export async function generateReport(
 
 Return STRICT JSON: {"clinician":[{"title":string,"content":string,"flag":boolean}],"patient":[{"title":string,"content":string,"flag":boolean}]}.
 
-CLINICIAN BRIEF — be SHORT and SCANNABLE. Every line is ONE fact or ONE action, max ~12 words. NO paragraphs, no filler. Use \\n between lines (no bullet characters). Clinician sections, in this exact order:
-- "Clinical Summary": 1-2 short lines — who the patient is and the headline issue.
-- "Priority Actions": 3-5 concrete recommendations, each STARTING WITH AN IMPERATIVE VERB (Order…, Refer…, Reassess…, Confirm…, Document…, Switch…). This is the most important section — make it specific and actionable.
-- "Active Concerns": terse one-line items, highest severity first.
-- "Care Gaps": terse one-line items.
-- "Questions to Clarify at Next Visit": terse one-line questions.
-Set flag=true on Priority Actions, Active Concerns, and Care Gaps.
+CLINICIAN BRIEF — detailed but organized and scannable. Write in complete sentences with clinical reasoning, but keep each item focused (1-2 sentences). Use \\n between items. Clinician sections, in this exact order:
+- "Clinical Summary": 3-4 sentences — demographics, key active problems, relevant history, and the headline reconciliation finding.
+- "Priority Actions": 4-6 recommendations, each STARTING WITH AN IMPERATIVE VERB (Order…, Refer…, Reassess…, Confirm…, Document…, Switch…) followed by a brief rationale (e.g. "Refer for a sleep study — overnight SpO2 dips below 90% with reported snoring suggest undiagnosed OSA."). This is the most important section.
+- "Active Concerns": one item per concern, highest severity first, each with a short explanation of why it matters.
+- "Medication Reconciliation": each active medication with status, how long it has been active, and any reconciliation issue.
+- "Notable Labs": the most relevant results with values, flags, and dates; note if screening is overdue.
+- "Wearable Signals": reconcile the patient-connected Apple Health data against the chart and call out anything (e.g. overnight oxygen desaturations) that appears in no clinical source.
+- "Care Gaps": one item per gap with why it matters.
+- "Questions to Clarify at Next Visit": specific questions tied to the gaps.
+Set flag=true on Priority Actions, Active Concerns, Medication Reconciliation, Wearable Signals, and Care Gaps.
 
 PATIENT SUMMARY sections, in order: What We Found, What to Ask Your Doctor, Next Steps. Warm, plain English, short lines (6th-grade reading level).`;
   const user = buildContext(b, gaps, citations);

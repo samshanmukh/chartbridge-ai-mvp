@@ -40,30 +40,47 @@ const clinicianSections: ReportSection[] = [
   {
     title: "Clinical Summary",
     content:
-      "Sam Karri, 30M.\nAllergic rhinitis, exercise-induced bronchoconstriction, family history of premature CAD, BMI 25.\nWearable shows overnight oxygen dips not in the chart.",
+      "Sam Karri, 30M. Active problems: perennial allergic rhinitis, exercise-induced bronchoconstriction, family history of premature coronary artery disease (father, MI at 52), and overweight (BMI 25). On diphenhydramine 25mg nightly, fluticasone nasal spray, and albuterol PRN. ChartBridge reconciled live FHIR, three years of Apple Health vitals, and the clinic's unstructured records — surfacing 7 reconciliation gaps, 3 high-priority.",
   },
   {
     title: "Priority Actions",
     flag: true,
     content:
-      "Refer for a sleep study — overnight oxygen dips.\nSwitch off nightly diphenhydramine; address sleep.\nOrder overdue screening labs (lipids, A1c, vitamin D).\nFlag latex-free across every care setting.",
+      "Refer for a sleep study — overnight SpO2 dips below 90% with reported snoring suggest undiagnosed sleep-disordered breathing.\nSwitch the nightly diphenhydramine to a second-generation antihistamine and address the underlying sleep complaint.\nOrder age-appropriate screening labs (lipid panel, metabolic panel, A1c) and reconcile any outside results.\nConfirm the latex-free allergy banner propagates to every clinic and hospital.\nReassess albuterol and fluticasone use and document current adherence.",
   },
   {
     title: "Active Concerns",
     flag: true,
     content:
-      "Possible sleep-disordered breathing — wearable only (high)\nChronic nightly first-gen antihistamine (medium)\nOverdue cardiovascular screening (high)\nLatex allergy with prior surgery (high)",
+      "1. Possible sleep-disordered breathing (high) — 37 overnight oxygen readings below 90% and ~6 awakenings/night, present in no clinical source.\n2. Chronic nightly first-generation antihistamine (medium) — anticholinergic burden and disrupted sleep architecture; may be masking the real problem.\n3. Overdue cardiovascular screening (high) — last panel ~3 years ago with a family history of premature CAD.\n4. Latex allergy with prior appendectomy (high) — perioperative safety risk if not flagged everywhere.",
+  },
+  {
+    title: "Medication Reconciliation",
+    flag: true,
+    content:
+      "Diphenhydramine 25 mg nightly — ACTIVE since 2020; OTC, used for sleep; no recent review.\nFluticasone nasal spray — ACTIVE since 2022; inconsistent use reported.\nAlbuterol HFA PRN — ACTIVE since 2021; used occasionally before exercise.\nPharmacy correspondence flags long-term OTC antihistamine use for prescriber review.",
+  },
+  {
+    title: "Notable Labs",
+    content:
+      "Total Cholesterol: 212 mg/dL [high] (2023-03-15)\nLDL Cholesterol: 138 mg/dL [high] (2023-03-15)\nTriglycerides: 168 mg/dL [high] (2023-03-15)\nVitamin D, 25-OH: 24 ng/mL [low] (2023-03-15)\nMost recent panel is ~3 years old — routine screening appears overdue.",
+  },
+  {
+    title: "Wearable Signals",
+    flag: true,
+    content:
+      "Resting Heart Rate: 70 bpm, up from 64 this spring\nOxygen Saturation (overnight): avg 96.8%, 37 readings below 90%\nSleep: 7 h/night with ~6 awakenings/night\nVO2 Max: 43 mL/kg·min (above average)\nThese overnight oxygen dips appear in no EHR source.",
   },
   {
     title: "Care Gaps",
     flag: true,
     content:
-      "No sleep study despite snoring + wearable signal\nLipid/metabolic screening overdue\nLatex banner not confirmed everywhere",
+      "1. No sleep study despite wearable desaturations and reported snoring.\n2. Lipid and metabolic screening overdue given family history.\n3. Latex allergy banner not confirmed across all care settings.\n4. Chronic antihistamine use never formally reassessed.",
   },
   {
     title: "Questions to Clarify at Next Visit",
     content:
-      "Snoring, gasping, or witnessed apnea overnight?\nAny labs done elsewhere since 2023?\nIs the latex allergy flagged everywhere?",
+      "1. Do you snore, gasp, or have witnessed apnea overnight?\n2. How often do you rely on diphenhydramine to fall asleep?\n3. Have you had any labs done at outside facilities since 2023?\n4. Is your latex allergy flagged at every clinic and hospital?",
   },
 ]
 

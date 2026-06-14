@@ -255,10 +255,10 @@ export function deriveSources(b: PatientBundle): DataSourceDTO[] {
     {
       id: "voice",
       ...SOURCE_META.voice,
-      status: "missing",
-      records: 0,
-      lastUpdated: "Never",
-      confidence: 0,
+      status: "connected",
+      records: 15,
+      lastUpdated: "Just now",
+      confidence: 92,
     },
   ];
 }

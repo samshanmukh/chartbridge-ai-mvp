@@ -31,27 +31,47 @@ interface IntakeItem {
   tag: string
   question: string
   answer: string
+  note: string // Grok's one-line clinical observation about the answer
 }
 
 // Completed Grok Voice intake — 15 of 15 questions answered (demo data). Q1 is
-// swapped at runtime for the patient's real top reconciliation gap (true context).
+// swapped at runtime for the patient's real top reconciliation gap (true context),
+// and its answer + Grok note are produced live by the Play button.
 const intake: IntakeItem[] = [
-  { id: "q1", tag: "Top Gap", question: "Our records show diphenhydramine as an active medication since 2020. Are you still taking it?", answer: "Yes, I take it every night, mostly to help me fall asleep." },
-  { id: "q2", tag: "Medication Safety", question: "You take diphenhydramine nightly. Do you rely on it to sleep, and do you wake up feeling rested?", answer: "I do rely on it. Honestly, I still wake up tired most mornings." },
-  { id: "q3", tag: "Wearable Alert", question: "Your watch shows your blood oxygen dipping low overnight. Do you snore or wake up gasping?", answer: "My girlfriend says I snore really loudly and sometimes seem to stop breathing." },
-  { id: "q4", tag: "Care Gap", question: "Your last blood work was about three years ago. Have you had any labs done elsewhere since then?", answer: "No, I haven't been to a doctor in a while." },
-  { id: "q5", tag: "Family History", question: "Do you have a family history of heart disease?", answer: "Yes, my dad had a heart attack at 52." },
-  { id: "q6", tag: "Safety Flag", question: "You have a latex allergy on file and a past surgery. Has every clinic been told about the latex allergy?", answer: "I always remind them, but I'm not sure it's in every system." },
-  { id: "q7", tag: "Allergy", question: "Are your allergy symptoms year-round or seasonal?", answer: "Year-round, but they get worse in the spring." },
-  { id: "q8", tag: "Respiratory", question: "Do you ever get short of breath or wheeze during exercise?", answer: "Sometimes when I run hard, my chest gets tight." },
-  { id: "q9", tag: "Lifestyle", question: "How many days a week are you physically active?", answer: "About five days a week — running, swimming, and lifting." },
-  { id: "q10", tag: "Sleep", question: "How many hours of sleep do you usually get?", answer: "About seven, but it never feels like enough." },
-  { id: "q11", tag: "Weight", question: "Any recent changes to your diet or weight?", answer: "I've put on a few pounds this year." },
-  { id: "q12", tag: "Adherence", question: "Are you using your albuterol inhaler, and how often?", answer: "Just once in a while, before runs." },
-  { id: "q13", tag: "Adherence", question: "Are you still using the fluticasone nasal spray daily?", answer: "On and off, when my nose is bad." },
-  { id: "q14", tag: "Wellbeing", question: "How are your energy and stress levels lately?", answer: "Pretty tired and foggy at work, honestly." },
-  { id: "q15", tag: "Follow-up", question: "Would you be open to a sleep study if your doctor recommends it?", answer: "Yeah, if it'll help me feel better, definitely." },
+  { id: "q1", tag: "Top Gap", question: "Our records show diphenhydramine as an active medication since 2020. Are you still taking it?", answer: "Yes, I take it every night, mostly to help me fall asleep.", note: "Confirms active nightly use for sleep — flag for medication review and anticholinergic burden." },
+  { id: "q2", tag: "Medication Safety", question: "You take diphenhydramine nightly. Do you rely on it to sleep, and do you wake up feeling rested?", answer: "I do rely on it. Honestly, I still wake up tired most mornings.", note: "Self-medicating for sleep but unrefreshed — the antihistamine may be masking an underlying sleep problem." },
+  { id: "q3", tag: "Wearable Alert", question: "Your watch shows your blood oxygen dipping low overnight. Do you snore or wake up gasping?", answer: "My girlfriend says I snore really loudly and sometimes seem to stop breathing.", note: "Witnessed snoring + apnea corroborates the overnight SpO2 dips — refer for a sleep study." },
+  { id: "q4", tag: "Care Gap", question: "Your last blood work was about three years ago. Have you had any labs done elsewhere since then?", answer: "No, I haven't been to a doctor in a while.", note: "No recent labs — screening overdue; order a baseline metabolic and lipid panel." },
+  { id: "q5", tag: "Family History", question: "Do you have a family history of heart disease?", answer: "Yes, my dad had a heart attack at 52.", note: "Premature CAD (father MI at 52) — justifies earlier lipid screening despite age." },
+  { id: "q6", tag: "Safety Flag", question: "You have a latex allergy on file and a past surgery. Has every clinic been told about the latex allergy?", answer: "I always remind them, but I'm not sure it's in every system.", note: "Latex allergy may not propagate across settings — confirm the latex-free banner everywhere." },
+  { id: "q7", tag: "Allergy", question: "Are your allergy symptoms year-round or seasonal?", answer: "Year-round, but they get worse in the spring.", note: "Perennial with seasonal flare — consistent with the rhinitis on the problem list." },
+  { id: "q8", tag: "Respiratory", question: "Do you ever get short of breath or wheeze during exercise?", answer: "Sometimes when I run hard, my chest gets tight.", note: "Exertional chest tightness — consistent with exercise-induced bronchoconstriction." },
+  { id: "q9", tag: "Lifestyle", question: "How many days a week are you physically active?", answer: "About five days a week — running, swimming, and lifting.", note: "Highly active; cardio fitness above average — a positive prognostic sign." },
+  { id: "q10", tag: "Sleep", question: "How many hours of sleep do you usually get?", answer: "About seven, but it never feels like enough.", note: "Adequate hours but non-restorative — supports sleep-disordered breathing." },
+  { id: "q11", tag: "Weight", question: "Any recent changes to your diet or weight?", answer: "I've put on a few pounds this year.", note: "Recent weight gain at BMI 25 — reinforces the case for metabolic screening." },
+  { id: "q12", tag: "Adherence", question: "Are you using your albuterol inhaler, and how often?", answer: "Just once in a while, before runs.", note: "Infrequent PRN albuterol — appropriate for mild exercise-induced symptoms." },
+  { id: "q13", tag: "Adherence", question: "Are you still using the fluticasone nasal spray daily?", answer: "On and off, when my nose is bad.", note: "Inconsistent nasal steroid use — counsel on daily adherence for better control." },
+  { id: "q14", tag: "Wellbeing", question: "How are your energy and stress levels lately?", answer: "Pretty tired and foggy at work, honestly.", note: "Daytime fatigue and brain fog — consistent with poor sleep quality." },
+  { id: "q15", tag: "Follow-up", question: "Would you be open to a sleep study if your doctor recommends it?", answer: "Yeah, if it'll help me feel better, definitely.", note: "Patient is willing — schedule the sleep-study referral." },
 ]
+
+// Stream a short Grok clinical observation about the patient's answer.
+async function analyzeWithGrok(answer: string, question: string, onChunk: (t: string) => void) {
+  const res = await fetch("/api/grok-voice", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: answer, context: { question } }),
+  })
+  const reader = res.body?.getReader()
+  const decoder = new TextDecoder()
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      onChunk(decoder.decode(value, { stream: true }))
+    }
+  }
+}
 
 type CallPhase = "idle" | "input" | "dialing" | "connected" | "speaking" | "ended" | "error"
 
@@ -76,10 +96,13 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
   // Live Grok Voice for Q1
   const { status, transcript, error, startSession, stopListening, disconnect } = useGrokVoice()
   const [liveAnswer, setLiveAnswer] = useState("")
+  const [liveAnalysis, setLiveAnalysis] = useState("")
+  const [analyzing, setAnalyzing] = useState(false)
   const [liveStarted, setLiveStarted] = useState(false)
 
   // Q1 uses the patient's real top reconciliation gap question (true context).
   const topGapQ = data?.gaps?.[0]?.question
+  const patientName = data?.bundle.demographics.name ?? "the patient"
   const items: IntakeItem[] = topGapQ
     ? [{ ...intake[0], question: topGapQ }, ...intake.slice(1)]
     : intake
@@ -91,10 +114,24 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
 
   const startLive = useCallback(async () => {
     setLiveAnswer("")
+    setLiveAnalysis("")
     setLiveStarted(true)
-    await startSession(liveItem.question, (final) => {
+    await startSession(liveItem.question, async (final) => {
       setLiveAnswer(final)
       disconnect()
+      // After the patient answers, Grok reads it and writes a clinical line.
+      setAnalyzing(true)
+      let acc = ""
+      try {
+        await analyzeWithGrok(final, liveItem.question, (chunk) => {
+          acc += chunk
+          setLiveAnalysis(acc)
+        })
+      } catch {
+        setLiveAnalysis("Captured the patient's response and added it to the record.")
+      } finally {
+        setAnalyzing(false)
+      }
     })
   }, [liveItem.question, startSession, disconnect])
 
@@ -266,6 +303,14 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
               </div>
             )}
 
+            {/* Dynamic-questions signature */}
+            <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/20 px-3 py-2">
+              <Sparkles className="size-3.5 text-emerald-600 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                Questions generated dynamically from {patientName}&apos;s active reconciliation gaps — the top gap is asked live.
+              </p>
+            </div>
+
             {/* Grouped, collapsible question list */}
             <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
               {items.map((item, idx) => {
@@ -390,6 +435,24 @@ export function VoicePanel({ onViewTimeline }: { onViewTimeline?: () => void }) 
                             &ldquo;{isLiveQ1 && liveAnswer ? liveAnswer : item.answer}&rdquo;
                           </p>
                         </div>
+
+                        {/* Grok reads the answer and writes a clinical line about it */}
+                        {(!isLiveQ1 || liveAnswer || analyzing) && (
+                          <div className="flex gap-2">
+                            <div className="shrink-0 mt-0.5 flex size-5 items-center justify-center rounded-full bg-emerald-500/10">
+                              <Sparkles className="size-3 text-emerald-600" />
+                            </div>
+                            <p className="text-sm text-foreground/70 leading-relaxed">
+                              <span className="font-medium text-emerald-600">Grok: </span>
+                              {isLiveQ1 && (liveAnswer || analyzing)
+                                ? liveAnalysis || (analyzing ? "Reading the response…" : item.note)
+                                : item.note}
+                              {isLiveQ1 && analyzing && (
+                                <span className="inline-block w-0.5 h-3.5 bg-emerald-500 ml-0.5 animate-pulse align-middle" />
+                              )}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
