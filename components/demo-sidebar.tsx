@@ -16,9 +16,11 @@ import {
   Activity,
   AlertTriangle,
   Watch,
+  UserPlus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePatient } from "@/lib/patient-context"
+import { AddPatientDialog } from "@/components/add-patient-dialog"
 
 const iconById: Record<string, React.ElementType> = {
   ehr: FileText,
@@ -35,6 +37,7 @@ interface DemoSidebarProps {
 
 export function DemoSidebar({ onSectionNav }: DemoSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const [addPatientOpen, setAddPatientOpen] = useState(false)
   const { data } = usePatient()
 
   const demo = data?.bundle.demographics
@@ -82,6 +85,7 @@ export function DemoSidebar({ onSectionNav }: DemoSidebarProps) {
       ]
 
   return (
+    <>
     <div className={cn("shrink-0 transition-all duration-300", collapsed ? "w-14" : "w-72")}>
       <Card className="sticky top-6 overflow-hidden border shadow-sm">
         {/* Header */}
@@ -172,7 +176,7 @@ export function DemoSidebar({ onSectionNav }: DemoSidebarProps) {
             </div>
 
             {/* Data sources */}
-            <div className="p-4">
+            <div className="p-4 border-b">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Data Sources</p>
               <div className="flex flex-col gap-1.5">
                 {dataSources.map((src) => {
@@ -196,9 +200,25 @@ export function DemoSidebar({ onSectionNav }: DemoSidebarProps) {
                 })}
               </div>
             </div>
+
+            {/* Add Patient */}
+            <div className="p-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 text-xs font-medium"
+                onClick={() => setAddPatientOpen(true)}
+              >
+                <UserPlus className="size-3.5" />
+                Add Patient
+              </Button>
+            </div>
           </CardContent>
         )}
       </Card>
     </div>
+
+    <AddPatientDialog open={addPatientOpen} onOpenChange={setAddPatientOpen} />
+    </>
   )
 }
