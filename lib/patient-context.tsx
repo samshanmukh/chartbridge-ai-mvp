@@ -5,17 +5,34 @@ import {
   useContext,
   useEffect,
   useState,
+  useCallback,
   type ReactNode,
 } from "react";
 import type { PatientResponse } from "@/lib/types";
 
+export interface SavedPatient {
+  id: number;
+  name: string;
+  email: string;
+  birthDate: string;
+  concern: string;
+  createdAt: string;
+}
+
 interface PatientCtx {
+  // FHIR demo data
   data: PatientResponse | null;
   loading: boolean;
   error: string | null;
   // Facts captured during the voice intake session (client-side only).
   voiceFacts: { question: string; response: string; tag: string }[];
   addVoiceFact: (f: { question: string; response: string; tag: string }) => void;
+  // Persisted patient list
+  savedPatients: SavedPatient[];
+  loadingSavedPatients: boolean;
+  activePatientId: number | null;
+  setActivePatient: (id: number) => void;
+  refreshPatients: () => Promise<void>;
 }
 
 const Ctx = createContext<PatientCtx | null>(null);
@@ -28,6 +45,12 @@ export function PatientProvider({ children }: { children: ReactNode }) {
     { question: string; response: string; tag: string }[]
   >([]);
 
+  // Persisted patients
+  const [savedPatients, setSavedPatients] = useState<SavedPatient[]>([]);
+  const [loadingSavedPatients, setLoadingSavedPatients] = useState(true);
+  const [activePatientId, setActivePatientId] = useState<number | null>(null);
+
+  // Fetch FHIR demo data
   useEffect(() => {
     let active = true;
     fetch("/api/patient")
@@ -49,6 +72,32 @@ export function PatientProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Fetch persisted patients from Neon
+  const refreshPatients = useCallback(async () => {
+    setLoadingSavedPatients(true);
+    try {
+      const res = await fetch("/api/patients");
+      if (!res.ok) throw new Error("Failed to fetch patients");
+      const rows: SavedPatient[] = await res.json();
+      setSavedPatients(rows);
+      // Auto-select the first patient if none is active yet
+      setActivePatientId((prev) => {
+        if (prev === null && rows.length > 0) return rows[0].id;
+        // If previously selected patient was removed, reset
+        const stillExists = rows.some((p) => p.id === prev);
+        return stillExists ? prev : rows.length > 0 ? rows[0].id : null;
+      });
+    } catch (e) {
+      console.error("[v0] refreshPatients error:", e);
+    } finally {
+      setLoadingSavedPatients(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshPatients();
+  }, [refreshPatients]);
+
   return (
     <Ctx.Provider
       value={{
@@ -57,6 +106,11 @@ export function PatientProvider({ children }: { children: ReactNode }) {
         error,
         voiceFacts,
         addVoiceFact: (f) => setVoiceFacts((prev) => [...prev, f]),
+        savedPatients,
+        loadingSavedPatients,
+        activePatientId,
+        setActivePatient: setActivePatientId,
+        refreshPatients,
       }}
     >
       {children}

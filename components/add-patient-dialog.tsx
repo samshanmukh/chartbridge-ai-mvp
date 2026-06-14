@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { UserPlus, CheckCircle } from "lucide-react"
+import { usePatient } from "@/lib/patient-context"
 
 interface PatientFormData {
   name: string
@@ -39,6 +40,8 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<PatientFormData>>({})
+  const [apiError, setApiError] = useState<string | null>(null)
+  const { refreshPatients, setActivePatient } = usePatient()
 
   const validate = (): boolean => {
     const next: Partial<PatientFormData> = {}
@@ -57,17 +60,38 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
   const handleChange = (field: keyof PatientFormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }))
+    if (apiError) setApiError(null)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
     setSubmitting(true)
-    // Simulate a brief submission delay
-    setTimeout(() => {
-      setSubmitting(false)
+    setApiError(null)
+    try {
+      const res = await fetch("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          birthDate: form.birthDate,
+          concern: form.mainConcern.trim(),
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? "Failed to save patient.")
+      }
+      const saved = await res.json()
+      await refreshPatients()
+      setActivePatient(saved.id)
       setSubmitted(true)
-    }, 800)
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Something went wrong.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleClose = (nextOpen: boolean) => {
@@ -78,6 +102,7 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
         setErrors({})
         setSubmitted(false)
         setSubmitting(false)
+        setApiError(null)
       }, 200)
     }
     onOpenChange(nextOpen)
@@ -194,6 +219,10 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
                   )}
                 </div>
               </div>
+
+              {apiError && (
+                <p className="mt-2 text-xs text-destructive">{apiError}</p>
+              )}
 
               <DialogFooter className="mt-4 flex gap-2 sm:flex-row">
                 <Button
